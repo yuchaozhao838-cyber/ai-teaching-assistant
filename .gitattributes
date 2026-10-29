@@ -1,0 +1,11 @@
+# 统一换行，避免 Windows 上提交后 diff 乱跳
+* text=auto eol=lf
+
+# 批处理脚本是 GBK 编码（cmd 中文需要），当二进制处理防止被转码
+*.bat binary
+*.cmd binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.docx binary
+*.pptx binary

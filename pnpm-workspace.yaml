@@ -1,0 +1,5 @@
+# pnpm 11 需要在 workspace 配置里显式允许依赖执行安装脚本
+allowBuilds:
+  canvas: false
+  electron: true
+  esbuild: true

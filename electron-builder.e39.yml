@@ -1,0 +1,26 @@
+appId: com.aitutor.classroom
+productName: AI课堂助手
+copyright: Copyright © 2026 AI Tutor
+directories:
+  output: release-e39
+  buildResources: build
+# 用新版 Electron 39.8.10 打一份"诊断版"，用来区分是 Electron 版本问题还是安全软件拦截
+electronVersion: 39.8.10
+electronDist: tmp/e39
+npmRebuild: false
+buildDependenciesFromSource: false
+files:
+  - apps/desktop/out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!apps/desktop/out/renderer/preview.html"
+  - "!apps/desktop/out/renderer/mock-tutor.js"
+asar: true
+compression: normal
+win:
+  icon: build/icon.ico
+  executableName: AI-Tutor-Assistant
+  target:
+    - target: dir
+      arch:
+        - x64

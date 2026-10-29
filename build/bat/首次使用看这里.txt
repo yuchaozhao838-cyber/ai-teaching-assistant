@@ -1,0 +1,40 @@
+AI 课堂助手 v1.0.0 —— 解压即用版
+=================================
+
+⚠ 重要：不要放在「桌面 / 文档 / 图片 / 下载」这些文件夹里运行！
+   这些目录被防勒索类安全软件加了保护（拒绝删除权限），Electron 一启动就会
+   以 0x80000003 崩溃 —— 表现为"转圈一会儿没窗口"。这不是程序的问题。
+
+一、怎么装（两步）
+  1. 把压缩包里的 AI-Tutor-Assistant-1.0.0 文件夹**解压到 C:\ 根目录**或
+     其他非受保护位置，例如：C:\AI-Tutor-Assistant
+     （不要只把 exe 拖出来，它要同目录的 dll 和 resources）
+  2. 双击文件夹里的 AI-Tutor-Assistant.exe
+
+  也可以直接运行安装版 AI-Tutor-Assistant-1.0.0-setup.exe，它默认装到
+  %LOCALAPPDATA%\Programs\AI课堂助手，同样不在受保护目录里。
+  注意：安装包本身也要先复制到 C:\ 再运行（从桌面直接双击会被同一个保护拦）。
+  免安装的 portable 版首次启动要自解压，等 15-30 秒属正常。
+
+二、第一次使用
+  1. 左下角「设置」→ 选一个模型供应商 → 填 API Key → 测试连接 → 保存
+  2. 不填密钥也能用：默认的「本地演示模型」会用规则生成演示讲解，先跑通流程
+  3. 回到「资料库」→ 导入文件 / 网页抓取 / 粘贴文本 → 点「生成讲解」
+  4. 右上角「导出」→ Word / PPT / PDF / Markdown
+
+三、如果双击后仍然没有窗口
+  1. 确认程序不在桌面/文档/图片/下载目录下（这是最常见原因）
+  2. 双击「兼容模式启动.bat」再试一次
+  3. 双击「诊断.bat」，把生成的「诊断日志.txt」发给开发者
+     里面会写明：程序代码有没有被执行（boot.log）、启动到哪一步（startup.log）
+
+四、日志与数据位置
+  %APPDATA%\AITutorAssistant\boot.log       进程是否加载了程序
+  %APPDATA%\AITutorAssistant\startup.log    启动到哪一步（窗口 / 界面加载）
+  %APPDATA%\AITutorAssistant\data\          材料与讲解数据
+  %APPDATA%\AITutorAssistant\secrets.json   加密后的 API Key
+
+五、说明
+  本版本未做代码签名，Windows SmartScreen 可能提示「未知发布者」，
+  选择「更多信息 → 仍要运行」。
+  详细功能说明见同目录「使用说明.md」。

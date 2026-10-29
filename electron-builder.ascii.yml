@@ -1,0 +1,25 @@
+﻿appId: com.aitutor.classroom
+productName: AI Tutor Assistant
+copyright: Copyright © 2026 AI Tutor
+directories:
+  output: release-ascii
+  buildResources: build
+electronVersion: 33.4.11
+electronDist: node_modules/electron/dist
+npmRebuild: false
+buildDependenciesFromSource: false
+files:
+  - apps/desktop/out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!apps/desktop/out/renderer/preview.html"
+  - "!apps/desktop/out/renderer/mock-tutor.js"
+asar: true
+compression: normal
+win:
+  icon: build/icon.ico
+  executableName: AI-Tutor-Assistant
+  target:
+    - target: dir
+      arch:
+        - x64

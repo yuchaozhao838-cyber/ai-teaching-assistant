@@ -1,0 +1,44 @@
+appId: com.aitutor.classroom
+productName: AI课堂助手
+copyright: Copyright © 2026 AI Tutor
+directories:
+  output: release
+  buildResources: build
+# 复用已下载的 Electron 发行包，避免重复下载
+electronDist: node_modules/electron/dist
+npmRebuild: false
+buildDependenciesFromSource: false
+files:
+  - apps/desktop/out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!apps/desktop/out/renderer/preview.html"
+  - "!apps/desktop/out/renderer/mock-tutor.js"
+asar: true
+compression: normal
+win:
+  icon: build/icon.ico
+  # 可执行文件用纯 ASCII 名，避免中文路径/文件名在个别安全软件或解压工具下出问题
+  executableName: AI-Tutor-Assistant
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+portable:
+  artifactName: AI-Tutor-Assistant-${version}-portable.${ext}
+  requestExecutionLevel: user
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: AI课堂助手
+  installerLanguages:
+    - zh_CN
+  language: "2052"
+  artifactName: AI-Tutor-Assistant-${version}-setup.${ext}

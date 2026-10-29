@@ -1,0 +1,47 @@
+appId: com.aitutor.classroom
+productName: AI课堂助手
+copyright: Copyright © 2026 AI Tutor
+directories:
+  output: release-e44
+  buildResources: build
+# 与 Windows 11 26200 兼容的 Electron 44（Electron 33/39 在该系统上启动即崩溃）
+electronVersion: 44.0.0
+electronDist: tmp/e44
+npmRebuild: false
+buildDependenciesFromSource: false
+files:
+  - apps/desktop/out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!apps/desktop/out/renderer/preview.html"
+  - "!apps/desktop/out/renderer/mock-tutor.js"
+asar: true
+compression: normal
+# pdf.js 在 Node 下会 require('./pdf.worker.js')，放到 asar 外更稳（Electron 会自动重定向读取）
+asarUnpack:
+  - "**/pdf.worker.js"
+win:
+  icon: build/icon.ico
+  executableName: AI-Tutor-Assistant
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+portable:
+  artifactName: AI-Tutor-Assistant-${version}-portable.${ext}
+  requestExecutionLevel: user
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: AI课堂助手
+  installerLanguages:
+    - zh_CN
+  language: "2052"
+  artifactName: AI-Tutor-Assistant-${version}-setup.${ext}

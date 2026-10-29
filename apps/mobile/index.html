@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#2f4bd8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AI 课堂助手" />
+    <meta name="description" content="导入课件 → AI 生成知识点详解与重点 → 手机随时复习" />
+    <title>AI 课堂助手</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #f5f7fb;
+        font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+      }
+      #app {
+        height: 100%;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 12px;
+        color: #5a6b85;
+        font-size: 14px;
+      }
+      #boot .spinner {
+        width: 26px;
+        height: 26px;
+        border: 3px solid #dbe3f5;
+        border-top-color: #2f4bd8;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"><div id="boot"><div class="spinner"></div><div>正在加载…</div></div></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,217 @@
+/* 手机版布局：侧边栏变顶部导航，三栏讲解变纵向堆叠 */
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+.shell {
+  height: 100dvh !important;
+}
+
+/* ---------------- 顶部导航（原侧边栏） ---------------- */
+@media (max-width: 860px) {
+  .shell {
+    flex-direction: column !important;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: calc(6px + var(--safe-top)) 8px 6px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-soft) !important;
+    gap: 4px !important;
+    height: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  .brand {
+    display: none !important;
+  }
+
+  .nav {
+    flex-direction: row !important;
+    flex: 1 1 auto !important;
+    margin-top: 0 !important;
+    gap: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .nav-item {
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 6px 2px !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+    min-width: 0 !important;
+  }
+
+  .nav-item span:not(.nav-count):not(.nav-pulse) {
+    font-size: 11px !important;
+  }
+
+  .nav-count,
+  .nav-pulse {
+    display: none !important;
+  }
+
+  .recent,
+  .model-line,
+  .version {
+    display: none !important;
+  }
+
+  .sidebar-foot {
+    margin-left: auto !important;
+    padding: 0 !important;
+    border: none !important;
+    flex-direction: row !important;
+    display: flex !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar-foot .nav-item {
+    width: 56px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .main {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 12px calc(16px + var(--safe-bottom)) !important;
+  }
+
+  .page {
+    padding: 0 !important;
+    gap: 12px !important;
+  }
+
+  .page-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .page-head h1 {
+    font-size: 20px !important;
+  }
+
+  .head-side {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* 资料库 */
+  .import-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .import-card {
+    padding: 12px !important;
+    min-height: 96px !important;
+  }
+
+  .doc-row {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    row-gap: 6px !important;
+  }
+
+  .doc-actions {
+    grid-column: 1 / -1 !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* 讲解：三栏 → 纵向 */
+  .lesson-body {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .outline-panel {
+    width: auto !important;
+    position: static !important;
+    max-height: 152px !important;
+    overflow-y: auto !important;
+    margin-bottom: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .kp-panel {
+    width: auto !important;
+    position: static !important;
+    margin-top: 14px !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .content-panel {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* 练习 */
+  .practice-body {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    overflow: visible !important;
+  }
+
+  .set-list {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+  }
+
+  .set-item {
+    min-width: 190px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .set-detail {
+    overflow: visible !important;
+  }
+
+  .detail-head {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .detail-actions {
+    justify-content: flex-start !important;
+  }
+
+  /* 设置 */
+  .settings-grid,
+  .info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 弹窗铺满屏幕 */
+  .n-modal {
+    max-width: 96vw !important;
+    width: 96vw !important;
+  }
+
+  .n-card {
+    max-height: 88dvh !important;
+    overflow-y: auto !important;
+  }
+}

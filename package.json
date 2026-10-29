@@ -1,0 +1,55 @@
+{
+  "name": "ai-teaching-assistant",
+  "productName": "AI课堂助手",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 教学辅助桌面应用（讲解闭环 MVP）：导入课件 → 生成知识点详解与重点划分 → 展示 / 导出",
+  "author": {
+    "name": "AI Tutor"
+  },
+  "license": "MIT",
+  "main": "apps/desktop/out/main/index.js",
+  "scripts": {
+    "build:main": "node scripts/build-main.mjs",
+    "build:renderer": "vite build --config apps/desktop/vite.config.mjs && node scripts/fix-html.mjs",
+    "build": "npm run build:main && npm run build:renderer",
+    "dev:renderer": "vite --config apps/desktop/vite.config.mjs",
+    "start": "electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "icon": "python scripts/gen-icon.py",
+    "smoke:backend": "node scripts/backend-smoke.mjs",
+    "smoke:export": "node scripts/run-export-smoke.mjs",
+    "preview": "node scripts/make-preview.mjs",
+    "pack:portable": "electron-builder --win portable --x64 --config electron-builder.yml",
+    "pack:nsis": "electron-builder --win nsis --x64 --config electron-builder.yml",
+    "pack:dir": "electron-builder --win dir --x64 --config electron-builder.yml"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "adm-zip": "^0.5.16",
+    "docx": "^9.0.3",
+    "dompurify": "^3.2.3",
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "katex": "^0.16.11",
+    "mammoth": "^1.8.0",
+    "marked": "^12.0.2",
+    "naive-ui": "^2.40.1",
+    "pdfjs-dist": "3.11.174",
+    "pptxgenjs": "^3.12.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vue": "^3.5.13",
+    "zod": "^3.23.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  }
+}

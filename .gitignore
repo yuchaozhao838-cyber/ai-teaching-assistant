@@ -1,0 +1,38 @@
+# 依赖与构建产物
+node_modules/
+.pnpm-store/
+
+# 构建输出
+apps/desktop/out/
+apps/desktop/dist/
+dist/
+dist-mobile/
+out/
+
+# 打包产物（exe / zip 都走 GitHub Releases，不进仓库）
+release/
+release-*/
+release-ascii/
+release-e39/
+release-e44/
+electron-dist/
+tmp/
+docs/preview/
+
+# 运行期数据
+*.log
+data/
+*.asar
+*.asar.unpacked/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 本地密钥（千万别提交）
+secrets.json
+.env
+.env.local

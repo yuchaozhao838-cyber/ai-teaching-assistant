@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PDF 页面渲染</title>
+    <style>
+      body { margin: 0; background: #ffffff; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <!-- pdf.worker.js 以经典脚本加载会挂到 globalThis.pdfjsWorker，pdf.js 会直接用它在主线程渲染 -->
+    <script src="./pdf.worker.js"></script>
+    <script src="./pdfRender.js"></script>
+  </body>
+</html>
