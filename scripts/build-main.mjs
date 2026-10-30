@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
-const pkgs = ['shared', 'content-ingest', 'ai-core', 'pedagogy', 'resource-service', 'export', 'practice']
+const pkgs = ['shared', 'content-ingest', 'ai-core', 'pedagogy', 'resource-service', 'export', 'practice', 'study']
 const alias = Object.fromEntries(pkgs.map((p) => [`@tutor/${p}`, path.join(root, 'packages', p, 'src', 'index.ts')]))
 
 const shared = {

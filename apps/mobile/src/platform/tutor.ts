@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 手机版（浏览器）的 window.tutor 实现：
  * 用 IndexedDB 存数据，AI 直接走 fetch（DeepSeek / 通义都支持跨域），
  * 讲解与练习的编排逻辑从桌面端主进程移植过来。
@@ -6,6 +6,8 @@
 import { AIError, createAIClient, isCanceled, testConnection } from '@tutor/ai-core'
 import {
   PROMPT_VERSION,
+  localPrepPlan,
+  buildIdeaMessages,
   buildPdfPageMessages,
   buildSectionMessages,
   generateLesson,
@@ -13,16 +15,41 @@ import {
   pagesToMarkdown
 } from '@tutor/pedagogy'
 import { buildMaterialContext, generateProblems } from '@tutor/practice'
+import {
+  DEFAULT_PRESETS,
+  csvToCourseSlots,
+  computeStats,
+  expandHomeworkRules,
+  focusSessionToEvent,
+  makeStudyEvent,
+  parseICS,
+  quoteOfDay,
+  shiftDateKey,
+  toDateKey,
+  toICS
+} from '@tutor/study'
 import { PROVIDER_PRESETS } from '@tutor/shared'
 import type {
   AppSettings,
+  CalendarEvent,
+  CourseSlot,
   DocumentRecord,
   ExportFormat,
+  FocusPreset,
+  FocusSession,
+  HomeworkRule,
+  IdeaNote,
+  PrepGoal,
+  PrepGenerateInput,
+  IdeaPolishMode,
   LessonArtifact,
   LessonEvent,
+  MistakeItem,
   ProblemSet,
   ProviderConfig,
   ProviderUpdate,
+  StudyEvent,
+  TimetableMeta,
   TestResult,
   TutorApi,
   VisionEvent
@@ -451,7 +478,8 @@ export function createBrowserTutor(): TutorApi {
       openDataDir: async () => undefined,
       openExternal: async (url: string) => {
         window.open(url, '_blank', 'noopener')
-      }
+      },
+      setMiniWindow: async (enabled: boolean) => ({ mini: enabled && false })
     },
 
     docs: {
@@ -740,6 +768,285 @@ export function createBrowserTutor(): TutorApi {
           apiKey: key,
           temperature: 0
         })
+      }
+    },
+
+    study: {
+      events: async () => {
+        const events = await store.all<StudyEvent>('study')
+        return [...events].sort((a, b) => b.startAt.localeCompare(a.startAt))
+      },
+      stats: async () => computeStats(await store.all<StudyEvent>('study')),
+      addEvent: async (input) => {
+        const event = makeStudyEvent(input)
+        await store.put('study', event)
+        return event
+      },
+      removeEvent: async (id: string) => {
+        await store.remove('study', id)
+      },
+      quote: async () => quoteOfDay()
+    },
+
+    focus: {
+      presets: async () => {
+        const saved = await store.kvGet<FocusPreset[]>('focusPresets', [])
+        if (saved.length) return saved
+        await store.kvSet('focusPresets', DEFAULT_PRESETS)
+        return DEFAULT_PRESETS
+      },
+      savePreset: async (preset: FocusPreset) => {
+        const saved = await store.kvGet<FocusPreset[]>('focusPresets', DEFAULT_PRESETS)
+        const list = saved.length ? saved : DEFAULT_PRESETS
+        const next = list.some((item) => item.id === preset.id)
+          ? list.map((item) => (item.id === preset.id ? preset : item))
+          : [...list, preset]
+        await store.kvSet('focusPresets', next)
+        return next
+      },
+      removePreset: async (id: string) => {
+        const saved = await store.kvGet<FocusPreset[]>('focusPresets', DEFAULT_PRESETS)
+        const next = saved.filter((item) => item.id !== id)
+        await store.kvSet('focusPresets', next)
+        return next
+      },
+      sessions: async () => {
+        const sessions = await store.all<FocusSession>('focus')
+        return [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      },
+      finish: async (input: Omit<FocusSession, 'id'>) => {
+        const session: FocusSession = { ...input, id: uid('focus') }
+        await store.put('focus', session)
+        const event = focusSessionToEvent(session)
+        if (event) await store.put('study', event)
+        return { session, event }
+      }
+    },
+
+    calendar: {
+      events: async () => {
+        const list = await store.all<CalendarEvent>('calendar')
+        return [...list].sort((a, b) => `${a.date}${a.startTime ?? ''}`.localeCompare(`${b.date}${b.startTime ?? ''}`))
+      },
+      saveEvent: async (event: CalendarEvent) => {
+        const saved: CalendarEvent = {
+          ...event,
+          id: event.id || uid('cal'),
+          createdAt: event.createdAt || new Date().toISOString()
+        }
+        await store.put('calendar', saved)
+        return saved
+      },
+      removeEvent: async (id: string) => {
+        await store.remove('calendar', id)
+      },
+      rules: async () => store.kvGet<HomeworkRule[]>('homeworkRules', []),
+      saveRule: async (rule: HomeworkRule) => {
+        const rules = await store.kvGet<HomeworkRule[]>('homeworkRules', [])
+        const next = rules.some((item) => item.id === rule.id)
+          ? rules.map((item) => (item.id === rule.id ? rule : item))
+          : [...rules, rule]
+        await store.kvSet('homeworkRules', next)
+        return next
+      },
+      removeRule: async (id: string) => {
+        const rules = await store.kvGet<HomeworkRule[]>('homeworkRules', [])
+        const next = rules.filter((item) => item.id !== id)
+        await store.kvSet('homeworkRules', next)
+        return next
+      },
+      importIcs: async (text: string) => {
+        try {
+          const parsed = parseICS(String(text ?? ''))
+          if (!parsed.length) return { ok: false, imported: 0, skipped: 0, error: '没有解析到任何日程（确认是 .ics 文件）' }
+          const existing = await store.all<CalendarEvent>('calendar')
+          const keys = new Set(existing.map((item) => `${item.title}|${item.date}|${item.startTime ?? ''}`))
+          let imported = 0
+          let skipped = 0
+          for (const event of parsed) {
+            const key = `${event.title}|${event.date}|${event.startTime ?? ''}`
+            if (keys.has(key)) {
+              skipped += 1
+              continue
+            }
+            keys.add(key)
+            await store.put('calendar', event)
+            imported += 1
+          }
+          return { ok: true, imported, skipped }
+        } catch (error) {
+          return { ok: false, imported: 0, skipped: 0, error: (error as Error).message }
+        }
+      },
+      exportIcs: async () => {
+        const events = await store.all<CalendarEvent>('calendar')
+        const rules = await store.kvGet<HomeworkRule[]>('homeworkRules', [])
+        const from = toDateKey()
+        const expanded = expandHomeworkRules(rules, from, shiftDateKey(from, 120))
+        return { ok: true, text: toICS([...events, ...expanded]) }
+      }
+    },
+
+    prep: {
+      list: async () => {
+        const goals = await store.all<PrepGoal>('prep')
+        return [...goals].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      },
+      save: async (goal: PrepGoal) => {
+        await store.put('prep', goal)
+        return goal
+      },
+      remove: async (id: string) => {
+        await store.remove('prep', id)
+      },
+      generate: async (input: PrepGenerateInput) => {
+        const docs = await store.all<DocumentRecord>('docs')
+        const materialTitles = docs.filter((doc) => input.materialIds.includes(doc.id)).map((doc) => doc.title)
+        const plan = localPrepPlan({
+          title: input.title,
+          examName: input.examName,
+          examDate: input.examDate,
+          weeks: input.weeks,
+          dailyMinutes: input.dailyMinutes,
+          baseline: input.baseline,
+          targetScore: input.targetScore,
+          materialTitles
+        })
+        const now = new Date().toISOString()
+        const goal: PrepGoal = {
+          id: `prep_${Date.now().toString(36)}`,
+          title: input.title,
+          examName: input.examName,
+          examDate: input.examDate,
+          startDate: now.slice(0, 10),
+          weeks: input.weeks,
+          dailyMinutes: input.dailyMinutes,
+          baseline: input.baseline,
+          targetScore: input.targetScore,
+          materialIds: input.materialIds,
+          summary: plan.summary,
+          advice: plan.advice,
+          phases: plan.phases,
+          createdAt: now,
+          updatedAt: now
+        }
+        await store.put('prep', goal)
+        return { ok: true, goal }
+      },
+      advise: async () => ({ ok: false, error: '手机版暂不支持 AI 建议，请在电脑版使用' })
+    },
+    ideas: {
+      list: async () => {
+        const ideas = await store.all<IdeaNote>('ideas')
+        return [...ideas].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      },
+      save: async (idea: IdeaNote) => {
+        await store.put('ideas', idea)
+        return idea
+      },
+      remove: async (id: string) => {
+        await store.remove('ideas', id)
+      },
+      polish: async (input: { text: string; mode: IdeaPolishMode; title?: string }) => {
+        const settings = await getSettings()
+        const provider = activeProvider(settings)
+        if (!provider) return { ok: false, error: '还没有配置模型' }
+        if (provider.kind === 'demo') return { ok: false, error: '润色需要接入真实模型（DeepSeek / 通义千问等）' }
+        const apiKey = getKey(provider.id) ?? ''
+        if (!apiKey) return { ok: false, error: `「${provider.name}」还没有填写 API Key` }
+        try {
+          const client = createAIClient({
+            providerId: provider.id,
+            providerName: provider.name,
+            baseUrl: provider.baseUrl,
+            model: provider.model,
+            apiKey,
+            temperature: 0.5
+          })
+          const text = await client.chat({ messages: buildIdeaMessages(input), temperature: 0.5, maxTokens: 1200 })
+          return { ok: true, text: text.trim() }
+        } catch (error) {
+          return { ok: false, error: errorMessage(error) }
+        }
+      }
+    },
+
+    timetable: {
+      list: async () => {
+        const slots = await store.all<CourseSlot>('timetable')
+        return [...slots].sort((a, b) => a.weekday - b.weekday || a.startTime.localeCompare(b.startTime))
+      },
+      save: async (slots: CourseSlot[]) => {
+        const cleaned = (slots ?? []).filter((slot) => slot?.courseName?.trim())
+        for (const slot of cleaned) await store.put('timetable', slot)
+        const keep = new Set(cleaned.map((slot) => slot.id))
+        const existing = await store.all<CourseSlot>('timetable')
+        for (const slot of existing) if (!keep.has(slot.id)) await store.remove('timetable', slot.id)
+        return cleaned
+      },
+      importCsv: async (text: string) => {
+        const parsed = csvToCourseSlots(text ?? '')
+        return { ok: parsed.slots.length > 0, slots: parsed.slots, errors: parsed.errors }
+      },
+      openCrawler: async () => ({ ok: false, error: '手机版没有登录窗口，课表请在电脑版抓取，或用 CSV 导入' }),
+      capture: async () => ({ ok: false, slots: [], note: '手机版不支持抓取', error: '请在电脑版抓取课表' }),
+      applyMapping: async () => ({ ok: false, slots: [], error: '手机版不支持抓取' }),
+      meta: async () => store.kvGet<TimetableMeta | null>('timetableMeta', null),
+      saveMeta: async (meta: TimetableMeta) => {
+        await store.kvSet('timetableMeta', meta)
+        return meta
+      },
+      diagnostics: async () => ({ ok: false, text: '手机版不支持抓取' }),
+      closeCrawler: async () => undefined
+    },
+
+    mistakes: {
+      list: async () => {
+        const items = await store.all<MistakeItem>('mistakes')
+        return [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      },
+      add: async (items: Array<Partial<MistakeItem>>) => {
+        const saved: MistakeItem[] = []
+        for (const item of items ?? []) {
+          if (!item?.stem?.trim()) continue
+          const full: MistakeItem = {
+            id: item.id ?? uid('mis'),
+            source: item.source ?? 'manual',
+            courseId: item.courseId,
+            knowledgePoint: item.knowledgePoint,
+            type: item.type ?? 'short',
+            stem: item.stem.trim(),
+            options: item.options,
+            answer: item.answer ?? '',
+            explanation: item.explanation ?? '',
+            wrongAnswer: item.wrongAnswer,
+            status: item.status ?? 'learning',
+            reviewCount: item.reviewCount ?? 0,
+            lastReviewedAt: item.lastReviewedAt,
+            createdAt: item.createdAt ?? new Date().toISOString(),
+            problemSetId: item.problemSetId,
+            problemId: item.problemId
+          }
+          await store.put('mistakes', full)
+          saved.push(full)
+        }
+        return saved
+      },
+      update: async (id: string, patch: Partial<MistakeItem>) => {
+        const found = await store.get<MistakeItem>('mistakes', id)
+        if (!found) return null
+        const next = { ...found, ...patch, id }
+        await store.put('mistakes', next)
+        return next
+      },
+      remove: async (id: string) => {
+        await store.remove('mistakes', id)
+      },
+      clearMastered: async () => {
+        const items = await store.all<MistakeItem>('mistakes')
+        for (const item of items.filter((entry) => entry.status === 'mastered')) {
+          await store.remove('mistakes', item.id)
+        }
       }
     },
 

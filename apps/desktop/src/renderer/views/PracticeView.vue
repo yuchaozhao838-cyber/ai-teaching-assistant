@@ -4,8 +4,10 @@ import { useMessage } from 'naive-ui'
 import type { ProblemDifficulty, ProblemItem, ProblemSet, ProblemType } from '@tutor/shared'
 import Icon from '../components/Icon.vue'
 import MarkdownView from '../components/MarkdownView.vue'
+import MistakesPanel from '../components/MistakesPanel.vue'
 import {
   activeProvider,
+  addMistakes,
   createManualProblemSet,
   deleteProblemSet,
   generateProblemSet,
@@ -17,6 +19,30 @@ import { formatDateTime } from '../utils/format'
 import { renderInline } from '../utils/markdown'
 
 const message = useMessage()
+
+const tab = ref<'problems' | 'mistakes'>('problems')
+const mistakeCount = computed(() => state.mistakes.filter((item) => item.status === 'learning').length)
+const loadingMistakes = 0
+
+/** 把当前题目记进错题本（练习页与错题本联动的最小入口） */
+async function onAddMistake(item: ProblemItem) {
+  if (!current.value) return
+  const options = item.options ?? []
+  await addMistakes([
+    {
+      source: 'quiz',
+      knowledgePoint: item.sectionTitle,
+      type: item.type === 'choice' ? 'single' : item.type === 'fill' ? 'blank' : 'short',
+      stem: item.stem,
+      options: options.length ? options : undefined,
+      answer: item.answer,
+      explanation: item.explanation,
+      problemSetId: current.value.id,
+      problemId: item.id
+    }
+  ])
+  message.success('已记入错题本，可在「错题本」里重练')
+}
 
 const TYPE_LABEL: Record<ProblemType, string> = {
   choice: '选择题',
@@ -220,7 +246,18 @@ void goPractice()
       </div>
     </header>
 
-    <div v-if="!sets.length" class="empty-state" style="padding-top: 40px">
+    <div class="practice-tabs">
+      <button class="practice-tab" :class="{ active: tab === 'problems' }" @click="tab = 'problems'">
+        习题<span v-if="sets.length" class="tab-count">{{ sets.length }}</span>
+      </button>
+      <button class="practice-tab" :class="{ active: tab === 'mistakes' }" @click="tab = 'mistakes'">
+        错题本<span v-if="loadingMistakes === 0 && mistakeCount" class="tab-count">{{ mistakeCount }}</span>
+      </button>
+    </div>
+
+    <MistakesPanel v-if="tab === 'mistakes'" />
+
+    <div v-if="tab === 'problems' && !sets.length" class="empty-state" style="padding-top: 40px">
       <div class="empty-visual">
         <div class="empty-card card-a"><Icon name="edit" :size="18" /></div>
         <div class="empty-card card-b"><Icon name="sparkles" :size="20" /></div>
@@ -234,7 +271,7 @@ void goPractice()
       <n-button type="primary" @click="genOpen = true">生成第一份习题</n-button>
     </div>
 
-    <div v-else class="practice-body">
+    <div v-else-if="tab === 'problems'" class="practice-body">
       <aside class="set-list">
         <button
           v-for="set in sets"
@@ -298,6 +335,10 @@ void goPractice()
               <span v-if="item.sectionTitle" class="problem-section">{{ item.sectionTitle }}</span>
             </div>
             <div class="problem-tools">
+              <n-button text size="tiny" @click="onAddMistake(item)">
+                <template #icon><Icon name="star" :size="13" /></template>
+                记入错题本
+              </n-button>
               <n-button text size="tiny" @click="openEdit(item)"><template #icon><Icon name="edit" :size="13" /></template>编辑</n-button>
               <n-popconfirm @positive-click="removeItem(item)">
                 <template #trigger>
@@ -459,6 +500,43 @@ void goPractice()
   gap: 16px;
   flex: 1;
   min-height: 0;
+}
+
+.practice-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: #eef2fa;
+  border-radius: 10px;
+  padding: 3px;
+  align-self: flex-start;
+}
+
+.practice-tab {
+  border: none;
+  background: none;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.practice-tab.active {
+  background: #fff;
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(15, 35, 95, 0.08);
+}
+
+.tab-count {
+  font-size: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 0 5px;
 }
 .set-list {
   display: flex;

@@ -1,13 +1,26 @@
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
   AppSettings,
   Block,
+  CalendarEvent,
+  CourseSlot,
+  TimetableMapping,
+  TimetableMeta,
   DocumentRecord,
   ExportFormat,
+  FocusPreset,
+  FocusSession,
+  HomeworkRule,
+  IdeaNote,
+  IdeaPolishMode,
+  PrepGenerateInput,
+  PrepGoal,
+  PrepPhase,
   LessonArtifact,
   LessonEvent,
+  MistakeItem,
   ProblemSet,
   ProviderConfig,
   ProviderUpdate,
@@ -26,6 +39,11 @@ import {
 } from '@tutor/content-ingest'
 import {
   PROMPT_VERSION,
+  buildIdeaMessages,
+  buildPrepAdviceMessages,
+  buildPrepPlanMessages,
+  localPrepPlan,
+  parsePrepPlan,
   buildPdfPageMessages,
   buildSectionMessages,
   generateLesson,
@@ -39,8 +57,22 @@ import { fetchWebArticle, captureCurrentPage, captureState, closeCaptureWindow, 
 import type { WebArticle } from './web-fetch'
 import { printHtmlToPdf } from './pdf'
 import { renderPdfPages } from './pdf-render'
+import { captureTimetable, captureWithMapping, closeCampusWindow, openCampusWindow, timetableDiagnostics } from './campus'
 import { encryptionAvailable } from './secrets'
 import { buildMaterialContext, generateProblems } from '@tutor/practice'
+import {
+  DEFAULT_PRESETS,
+  computeStats,
+  csvToCourseSlots,
+  expandHomeworkRules,
+  focusSessionToEvent,
+  makeStudyEvent,
+  parseICS,
+  quoteOfDay,
+  shiftDateKey,
+  toDateKey,
+  toICS
+} from '@tutor/study'
 
 export interface IpcContext {
   resources: ResourceService
@@ -88,6 +120,33 @@ export function registerIpcHandlers(ctx: IpcContext) {
 
   ipcMain.handle('app:openExternal', async (_event, url: string) => {
     if (/^https?:\/\//i.test(url)) await shell.openExternal(url)
+  })
+
+  /** 迷你窗口：番茄钟置顶小窗，方便一边学一边做别的事 */
+  const miniBounds = new Map<number, Electron.Rectangle>()
+  ipcMain.handle('app:setMiniWindow', (event, enabled: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { mini: false }
+    if (enabled) {
+      if (!miniBounds.has(win.id)) miniBounds.set(win.id, win.getBounds())
+      win.setAlwaysOnTop(true, 'floating')
+      win.setResizable(false)
+      win.setMinimumSize(320, 200)
+      win.setSize(340, 210, false)
+      const area = screen.getPrimaryDisplay().workArea
+      win.setPosition(area.x + area.width - 360, area.y + 36)
+      win.show()
+      win.focus()
+    } else {
+      win.setAlwaysOnTop(false)
+      win.setResizable(true)
+      win.setMinimumSize(0, 0)
+      const saved = miniBounds.get(win.id)
+      miniBounds.delete(win.id)
+      if (saved) win.setBounds(saved)
+      else win.setSize(1360, 900, false)
+    }
+    return { mini: enabled }
   })
 
   /* -------------------------------- 资料库 -------------------------------- */
@@ -785,6 +844,352 @@ export function registerIpcHandlers(ctx: IpcContext) {
       }
     }
   )
+
+  /* -------------------------------- 课表 ---------------------------------- */
+  ipcMain.handle('timetable:list', () => resources.listCourseSlots())
+  ipcMain.handle('timetable:save', async (_event, slots: CourseSlot[]) => {
+    const cleaned = (slots ?? []).filter((slot) => slot?.courseName?.trim())
+    return resources.saveCourseSlots(cleaned)
+  })
+  ipcMain.handle('timetable:importCsv', async (_event, text: string) => {
+    const { slots, errors } = csvToCourseSlots(text ?? '')
+    return { ok: slots.length > 0, slots, errors }
+  })
+  ipcMain.handle('timetable:openCrawler', async (_event, url: string) => openCampusWindow(url))
+  ipcMain.handle('timetable:capture', async () => {
+    const result = await captureTimetable()
+    if (result.ok) {
+      const existing = await resources.listCourseSlots()
+      const merged = [...existing.filter((slot) => slot.source !== 'crawl'), ...result.slots]
+      await resources.saveCourseSlots(merged)
+      if (result.week || result.termStart) {
+        await resources.saveTimetableMeta({
+          week: result.week ?? 1,
+          termName: result.termName,
+          termStart: result.termStart,
+          updatedAt: new Date().toISOString()
+        })
+      }
+    }
+    return result
+  })
+  ipcMain.handle('timetable:applyMapping', async (_event, candidateId: string, mapping: TimetableMapping) => {
+    const result = captureWithMapping(candidateId, mapping)
+    if (result.ok) {
+      const existing = await resources.listCourseSlots()
+      await resources.saveCourseSlots([...existing.filter((slot) => slot.source !== 'crawl'), ...result.slots])
+    }
+    return result
+  })
+  ipcMain.handle('timetable:meta', () => resources.getTimetableMeta())
+  ipcMain.handle('timetable:saveMeta', async (_event, meta: TimetableMeta) => {
+    return resources.saveTimetableMeta({ ...meta, updatedAt: new Date().toISOString() })
+  })
+  ipcMain.handle('timetable:diagnostics', () => timetableDiagnostics())
+  ipcMain.handle('timetable:closeCrawler', () => {
+    closeCampusWindow()
+  })
+
+  /* -------------------------------- 备考规划 -------------------------------- */
+  ipcMain.handle('prep:list', () => resources.listPrepGoals())
+  ipcMain.handle('prep:save', async (_event, goal: PrepGoal) => {
+    return resources.savePrepGoal({ ...goal, updatedAt: new Date().toISOString() })
+  })
+  ipcMain.handle('prep:remove', async (_event, id: string) => {
+    await resources.deletePrepGoal(id)
+  })
+  ipcMain.handle('prep:generate', async (_event, input: PrepGenerateInput) => {
+    const docs = await resources.listDocuments()
+    const materialTitles = docs.filter((doc) => input.materialIds.includes(doc.id)).map((doc) => doc.title)
+    const planInput = {
+      title: input.title,
+      examName: input.examName,
+      examDate: input.examDate,
+      weeks: Math.min(30, Math.max(1, input.weeks)),
+      dailyMinutes: Math.min(480, Math.max(15, input.dailyMinutes)),
+      baseline: input.baseline,
+      targetScore: input.targetScore,
+      materialTitles
+    }
+
+    let plan: { summary: string; phases: PrepPhase[]; advice: string[] } | null = null
+    const settings = await resources.getSettings()
+    const provider = activeProvider(settings)
+    if (provider && provider.kind !== 'demo') {
+      const apiKey = secrets.get(provider.id) ?? ''
+      if (apiKey) {
+        try {
+          const client = createAIClient({
+            providerId: provider.id,
+            providerName: provider.name,
+            baseUrl: provider.baseUrl,
+            model: provider.model,
+            apiKey,
+            temperature: 0.4
+          })
+          const text = await client.chat({
+            messages: buildPrepPlanMessages(planInput),
+            temperature: 0.4,
+            maxTokens: 2200
+          })
+          plan = parsePrepPlan(text, planInput.weeks, planInput.dailyMinutes)
+        } catch {
+          plan = null
+        }
+      }
+    }
+    const finalPlan = plan ?? localPrepPlan(planInput)
+
+    const now = new Date().toISOString()
+    const goal: PrepGoal = {
+      id: `prep_${Date.now().toString(36)}`,
+      title: input.title.slice(0, 60),
+      examName: input.examName.slice(0, 40),
+      examDate: input.examDate,
+      startDate: now.slice(0, 10),
+      weeks: planInput.weeks,
+      dailyMinutes: planInput.dailyMinutes,
+      baseline: input.baseline,
+      targetScore: input.targetScore,
+      materialIds: input.materialIds,
+      summary: finalPlan.summary,
+      advice: finalPlan.advice,
+      phases: finalPlan.phases,
+      createdAt: now,
+      updatedAt: now
+    }
+    await resources.savePrepGoal(goal)
+    return { ok: true, goal }
+  })
+  ipcMain.handle('prep:advise', async (_event, goalId: string) => {
+    const goals = await resources.listPrepGoals()
+    const goal = goals.find((item) => item.id === goalId)
+    if (!goal) return { ok: false, error: '目标不存在' }
+    const docs = await resources.listDocuments()
+    const materialNames = docs.filter((doc) => goal.materialIds.includes(doc.id)).map((doc) => doc.title)
+
+    const settings = await resources.getSettings()
+    const provider = activeProvider(settings)
+    if (!provider || provider.kind === 'demo') {
+      return {
+        ok: true,
+        advice: [
+          '本地演示模型不产出备考建议；在「设置」里接入 DeepSeek / 通义千问等真实模型后，这里会结合你的材料给出针对性建议。',
+          `按当前计划，每天 ${goal.dailyMinutes} 分钟，建议拆成两段完成。`,
+          materialNames.length ? `已关联材料：${materialNames.join('、')}，可先用它做一遍专项练习。` : '还没有关联材料，建议先导入真题或课本。'
+        ]
+      }
+    }
+    const apiKey = secrets.get(provider.id) ?? ''
+    if (!apiKey) return { ok: false, error: `「${provider.name}」还没有填写 API Key` }
+    try {
+      const client = createAIClient({
+        providerId: provider.id,
+        providerName: provider.name,
+        baseUrl: provider.baseUrl,
+        model: provider.model,
+        apiKey,
+        temperature: 0.5
+      })
+      const text = await client.chat({
+        messages: buildPrepAdviceMessages(goal, materialNames),
+        temperature: 0.5,
+        maxTokens: 900
+      })
+      const advice = text
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-*\d.、\s]+/, '').trim())
+        .filter((line) => line.length > 3)
+        .slice(0, 6)
+      return { ok: true, advice }
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) }
+    }
+  })
+
+  /* -------------------------------- 灵感记录 -------------------------------- */
+  ipcMain.handle('ideas:list', () => resources.listIdeas())
+  ipcMain.handle('ideas:save', async (_event, idea: IdeaNote) => {
+    const now = new Date().toISOString()
+    const existing = (await resources.listIdeas()).find((item) => item.id === idea.id)
+    return resources.saveIdea({
+      ...idea,
+      id: idea.id || newId('idea'),
+      title: (idea.title || '').trim().slice(0, 80) || '未命名灵感',
+      tags: (idea.tags ?? []).map((tag) => tag.trim()).filter(Boolean).slice(0, 8),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      source: idea.source ?? 'manual'
+    })
+  })
+  ipcMain.handle('ideas:remove', async (_event, id: string) => {
+    await resources.deleteIdea(id)
+  })
+  ipcMain.handle('ideas:polish', async (_event, input: { text: string; mode: IdeaPolishMode; title?: string }) => {
+    const settings = await resources.getSettings()
+    const provider = activeProvider(settings)
+    if (!provider) return { ok: false, error: '还没有配置模型' }
+    if (provider.kind === 'demo') {
+      return { ok: false, error: '润色需要接入真实模型（DeepSeek / 通义千问等），本地演示模型只能体验讲解' }
+    }
+    const apiKey = secrets.get(provider.id) ?? ''
+    if (!apiKey) return { ok: false, error: `「${provider.name}」还没有填写 API Key` }
+    try {
+      const client = createAIClient({
+        providerId: provider.id,
+        providerName: provider.name,
+        baseUrl: provider.baseUrl,
+        model: provider.model,
+        apiKey,
+        temperature: 0.5
+      })
+      const text = await client.chat({
+        messages: buildIdeaMessages({ text: input.text, mode: input.mode, title: input.title }),
+        temperature: 0.5,
+        maxTokens: 1200
+      })
+      return { ok: true, text: text.trim() }
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) }
+    }
+  })
+
+  /* -------------------------------- 日历 ---------------------------------- */
+  ipcMain.handle('calendar:events', () => resources.listCalendarEvents())
+  ipcMain.handle('calendar:saveEvent', async (_event, event: CalendarEvent) => {
+    return resources.saveCalendarEvent({
+      ...event,
+      id: event.id || newId('cal'),
+      createdAt: event.createdAt || new Date().toISOString()
+    })
+  })
+  ipcMain.handle('calendar:removeEvent', async (_event, id: string) => {
+    await resources.deleteCalendarEvent(id)
+  })
+  ipcMain.handle('calendar:rules', () => resources.listHomeworkRules())
+  ipcMain.handle('calendar:saveRule', async (_event, rule: HomeworkRule) => {
+    const rules = await resources.listHomeworkRules()
+    const next = rules.some((item) => item.id === rule.id)
+      ? rules.map((item) => (item.id === rule.id ? rule : item))
+      : [...rules, rule]
+    return resources.saveHomeworkRules(next)
+  })
+  ipcMain.handle('calendar:removeRule', async (_event, id: string) => {
+    const rules = await resources.listHomeworkRules()
+    return resources.saveHomeworkRules(rules.filter((item) => item.id !== id))
+  })
+  ipcMain.handle('calendar:importIcs', async (_event, text: string) => {
+    try {
+      const parsed = parseICS(String(text ?? ''))
+      if (!parsed.length) return { ok: false, imported: 0, skipped: 0, error: '没有解析到任何日程（确认是 .ics 文件）' }
+      const existing = await resources.listCalendarEvents()
+      const keys = new Set(existing.map((item) => `${item.title}|${item.date}|${item.startTime ?? ''}`))
+      let imported = 0
+      let skipped = 0
+      for (const event of parsed) {
+        const key = `${event.title}|${event.date}|${event.startTime ?? ''}`
+        if (keys.has(key)) {
+          skipped += 1
+          continue
+        }
+        keys.add(key)
+        await resources.saveCalendarEvent(event)
+        imported += 1
+      }
+      return { ok: true, imported, skipped }
+    } catch (error) {
+      return { ok: false, imported: 0, skipped: 0, error: (error as Error).message }
+    }
+  })
+  ipcMain.handle('calendar:exportIcs', async () => {
+    const events = await resources.listCalendarEvents()
+    const rules = await resources.listHomeworkRules()
+    const today = new Date()
+    const from = toDateKey(today)
+    const to = shiftDateKey(from, 120)
+    const expanded = expandHomeworkRules(rules, from, to)
+    return { ok: true, text: toICS([...events, ...expanded]) }
+  })
+
+  /* -------------------------------- 学习管理 -------------------------------- */
+  ipcMain.handle('study:events', () => resources.listStudyEvents())
+  ipcMain.handle('study:stats', async () => computeStats(await resources.listStudyEvents()))
+  ipcMain.handle('study:quote', () => quoteOfDay())
+  ipcMain.handle('study:addEvent', async (_event, input: Parameters<typeof makeStudyEvent>[0]) => {
+    const event = makeStudyEvent(input)
+    return resources.saveStudyEvent(event)
+  })
+  ipcMain.handle('study:removeEvent', async (_event, id: string) => {
+    await resources.deleteStudyEvent(id)
+  })
+
+  ipcMain.handle('focus:presets', async () => {
+    const presets = await resources.getFocusPresets()
+    if (presets.length) return presets
+    return resources.saveFocusPresets(DEFAULT_PRESETS)
+  })
+  ipcMain.handle('focus:savePreset', async (_event, preset: FocusPreset) => {
+    const presets = await resources.getFocusPresets()
+    const list = presets.length ? presets : DEFAULT_PRESETS
+    const exists = list.some((item) => item.id === preset.id)
+    const next = exists ? list.map((item) => (item.id === preset.id ? preset : item)) : [...list, preset]
+    return resources.saveFocusPresets(next)
+  })
+  ipcMain.handle('focus:removePreset', async (_event, id: string) => {
+    const presets = await resources.getFocusPresets()
+    return resources.saveFocusPresets(presets.filter((item) => item.id !== id))
+  })
+  ipcMain.handle('focus:sessions', () => resources.listFocusSessions())
+  ipcMain.handle('focus:finish', async (_event, input: Omit<FocusSession, 'id'>) => {
+    const session: FocusSession = { ...input, id: newId('focus') }
+    const saved = await resources.saveFocusSession(session)
+    const event = focusSessionToEvent(saved)
+    if (event) await resources.saveStudyEvent(event)
+    return { session: saved, event }
+  })
+
+  ipcMain.handle('mistakes:list', () => resources.listMistakes())
+  ipcMain.handle('mistakes:add', async (_event, items: Array<Partial<MistakeItem>>) => {
+    const saved: MistakeItem[] = []
+    for (const item of items ?? []) {
+      if (!item?.stem?.trim()) continue
+      const full: MistakeItem = {
+        id: item.id ?? newId('mis'),
+        source: item.source ?? 'manual',
+        courseId: item.courseId,
+        knowledgePoint: item.knowledgePoint,
+        type: item.type ?? 'short',
+        stem: item.stem.trim(),
+        options: item.options,
+        answer: item.answer ?? '',
+        explanation: item.explanation ?? '',
+        wrongAnswer: item.wrongAnswer,
+        status: item.status ?? 'learning',
+        reviewCount: item.reviewCount ?? 0,
+        lastReviewedAt: item.lastReviewedAt,
+        createdAt: item.createdAt ?? new Date().toISOString(),
+        problemSetId: item.problemSetId,
+        problemId: item.problemId
+      }
+      saved.push(await resources.saveMistake(full))
+    }
+    return saved
+  })
+  ipcMain.handle('mistakes:update', async (_event, id: string, patch: Partial<MistakeItem>) => {
+    const list = await resources.listMistakes()
+    const found = list.find((item) => item.id === id)
+    if (!found) return null
+    return resources.saveMistake({ ...found, ...patch, id })
+  })
+  ipcMain.handle('mistakes:remove', async (_event, id: string) => {
+    await resources.deleteMistake(id)
+  })
+  ipcMain.handle('mistakes:clearMastered', async () => {
+    const list = await resources.listMistakes()
+    for (const item of list.filter((entry) => entry.status === 'mastered')) {
+      await resources.deleteMistake(item.id)
+    }
+  })
 
   /* --------------------------------- 导出 --------------------------------- */
   ipcMain.handle('exporter:run', async (event, artifactId: string, format: ExportFormat) => {

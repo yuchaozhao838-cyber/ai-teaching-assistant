@@ -1,8 +1,8 @@
 /** 手机版的本地存储：IndexedDB（比 localStorage 大得多，能存整本教材） */
 
 const DB_NAME = 'aitutor-mobile'
-const DB_VERSION = 1
-const STORES = ['docs', 'artifacts', 'practice', 'kv'] as const
+const DB_VERSION = 6
+const STORES = ['docs', 'artifacts', 'practice', 'study', 'focus', 'mistakes', 'calendar', 'rules', 'timetable', 'ideas', 'prep', 'kv'] as const
 type StoreName = (typeof STORES)[number]
 
 let dbPromise: Promise<IDBDatabase> | null = null

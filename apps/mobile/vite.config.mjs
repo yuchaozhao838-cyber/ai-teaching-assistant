@@ -18,6 +18,7 @@ export default defineConfig({
       { find: /^@tutor\/ai-core$/, replacement: path.join(root, 'packages/ai-core/src/index.ts') },
       { find: /^@tutor\/pedagogy$/, replacement: path.join(root, 'packages/pedagogy/src/index.ts') },
       { find: /^@tutor\/practice$/, replacement: path.join(root, 'packages/practice/src/index.ts') },
+      { find: /^@tutor\/study$/, replacement: path.join(root, 'packages/study/src/index.ts') },
       { find: /^@renderer\//, replacement: path.join(root, 'apps/desktop/src/renderer') + '/' }
     ]
   },

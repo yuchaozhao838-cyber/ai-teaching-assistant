@@ -4,8 +4,11 @@ import LibraryView from './views/LibraryView.vue'
 import LessonView from './views/LessonView.vue'
 import SettingsView from './views/SettingsView.vue'
 import PracticeView from './views/PracticeView.vue'
+import FocusView from './views/FocusView.vue'
+import IdeasView from './views/IdeasView.vue'
+import PrepView from './views/PrepView.vue'
 import Icon from './components/Icon.vue'
-import { activeProvider, goLibrary, goPractice, goSettings, openArtifact, openDocument, state } from './store'
+import { activeProvider, goFocus, goIdeas, goLibrary, goPractice, goPrep, goSettings, openArtifact, openDocument, state } from './store'
 import { formatRelative } from './utils/format'
 
 const recentArtifacts = computed(() => state.artifacts.slice(0, 8))
@@ -37,7 +40,12 @@ function openCurrentLesson() {
 </script>
 
 <template>
-  <div class="shell">
+  <!-- 迷你窗口：只留番茄钟 -->
+  <div v-if="state.mini" class="mini-shell">
+    <FocusView />
+  </div>
+
+  <div v-else class="shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-logo">讲</div>
@@ -63,6 +71,21 @@ function openCurrentLesson() {
           <Icon name="edit" :size="17" />
           <span>练习</span>
           <span v-if="state.problemSets.length" class="nav-count">{{ state.problemSets.length }}</span>
+        </button>
+        <button class="nav-item" :class="{ active: state.view === 'prep' }" @click="goPrep">
+          <Icon name="target" :size="17" />
+          <span>备考</span>
+          <span v-if="state.prepGoals.length" class="nav-count">{{ state.prepGoals.length }}</span>
+        </button>
+        <button class="nav-item" :class="{ active: state.view === 'ideas' }" @click="goIdeas">
+          <Icon name="bulb" :size="17" />
+          <span>灵感</span>
+          <span v-if="state.ideas.length" class="nav-count">{{ state.ideas.length }}</span>
+        </button>
+        <button class="nav-item" :class="{ active: state.view === 'focus' }" @click="goFocus">
+          <Icon name="clock" :size="17" />
+          <span>专注</span>
+          <span v-if="state.studyStats?.today.focusCount" class="nav-count">{{ state.studyStats.today.focusCount }}</span>
         </button>
       </nav>
 
@@ -104,7 +127,20 @@ function openCurrentLesson() {
       <LibraryView v-if="state.view === 'library'" />
       <LessonView v-else-if="state.view === 'lesson'" />
       <PracticeView v-else-if="state.view === 'practice'" />
-      <SettingsView v-else />
+      <PrepView v-else-if="state.view === 'prep'" />
+      <IdeasView v-else-if="state.view === 'ideas'" />
+      <FocusView v-else-if="state.view === 'focus'" />
+      <SettingsView v-else-if="state.view === 'settings'" />
+      <LibraryView v-else />
     </main>
   </div>
 </template>
+
+<style scoped>
+.mini-shell {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #0f172a;
+}
+</style>

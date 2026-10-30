@@ -6,6 +6,7 @@ import Icon from '../components/Icon.vue'
 import {
   activeProvider,
   artifactOfDocument,
+  goFocus,
   goSettings,
   importFiles,
   importText,
@@ -18,8 +19,54 @@ import {
   startLesson
 } from '../store'
 import { formatDateTime, formatNumber } from '../utils/format'
+import {
+  QUOTES,
+  daysUntil,
+  expandHomeworkRules,
+  isVacationDay,
+  quoteIndexFor,
+  shiftDateKey,
+  toDateKey,
+  weekOfTerm,
+  weekStartDate
+} from '@tutor/study'
 
 const message = useMessage()
+
+const pendingMistakes = computed(() => state.mistakes.filter((item) => item.status === 'learning').length)
+const todayFocus = computed(() => state.studyStats?.today ?? { focusCount: 0, focusMinutes: 0 })
+
+/** 教学周 + 期末倒计时（按开学日自动推进；放假/考试周单独标记） */
+const termInfo = computed(() => {
+  const meta = state.timetableMeta
+  if (!meta) return null
+  // 没设开学日时，至少显示抓取到的周数，不显示倒计时
+  if (!meta.termStart || !/^\d{4}-\d{2}-\d{2}$/.test(meta.termStart)) {
+    if (!meta.week) return null
+    return { week: meta.week, daysToExam: 0, inExamWeek: false, onVacation: false }
+  }
+  const today = new Date()
+  const week = weekOfTerm(meta.termStart, today, meta.totalWeeks ?? 30)
+  const examWeekStart = meta.examWeekStart ?? 17
+  const examWeekEnd = meta.examWeekEnd ?? 18
+  const examStart = weekStartDate(meta.termStart, examWeekStart)
+  return {
+    week,
+    daysToExam: daysUntil(examStart, today),
+    inExamWeek: week >= examWeekStart && week <= examWeekEnd,
+    onVacation: isVacationDay(toDateKey(today), meta.vacations)
+  }
+})
+
+/** 近期日程（日历事件 + 作业规则展开），首页只显示最近的 3 条 */
+const upcomingEvents = computed(() => {
+  const from = toDateKey(new Date())
+  const list = [...state.calendarEvents, ...expandHomeworkRules(state.homeworkRules, from, shiftDateKey(from, 21))]
+  return list
+    .filter((event) => event.date >= from)
+    .sort((a, b) => `${a.date}${a.startTime ?? ''}`.localeCompare(`${b.date}${b.startTime ?? ''}`))
+    .slice(0, 3)
+})
 
 const webOpen = ref(false)
 const webUrl = ref('')
@@ -47,7 +94,31 @@ const startingDocId = ref('')
 const provider = computed(() => activeProvider())
 const isDemo = computed(() => provider.value?.kind === 'demo')
 
+/* 每日语录：默认每天一句，页面每 20 秒自动轮换，也可以手动「换一换」 */
+const quoteIndex = ref(quoteIndexFor(toDateKey(new Date())))
+const quoteFading = ref(false)
+let quoteTimer: number | null = null
+
+const currentQuote = computed(() => QUOTES[quoteIndex.value] ?? { text: '今天也要好好学一点。' })
+
+function restartQuoteTimer() {
+  if (quoteTimer) window.clearInterval(quoteTimer)
+  quoteTimer = window.setInterval(() => {
+    quoteIndex.value = (quoteIndex.value + 1) % QUOTES.length
+  }, 20000)
+}
+
+function nextQuote() {
+  quoteFading.value = true
+  window.setTimeout(() => {
+    quoteIndex.value = (quoteIndex.value + 1) % QUOTES.length
+    quoteFading.value = false
+  }, 150)
+  restartQuoteTimer()
+}
+
 onMounted(() => {
+  restartQuoteTimer()
   visionUnsub = window.tutor.docs.onVisionEvent((event) => {
     if (event.type === 'progress') visionMessage.value = `${event.file}：${event.message}`
   })
@@ -55,6 +126,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   visionUnsub?.()
+  if (quoteTimer) window.clearInterval(quoteTimer)
 })
 
 async function onVisionImport() {
@@ -283,6 +355,56 @@ async function onRemove(doc: DocumentRecord) {
         </button>
       </div>
     </header>
+
+    <!-- 今日学习卡片：番茄钟 + 错题 + 每日语录 -->
+    <section class="today-card">
+      <div class="today-stats">
+        <button class="today-stat" @click="goFocus">
+          <span class="today-value">{{ todayFocus.focusCount }}</span>
+          <span class="today-label">今日番茄</span>
+        </button>
+        <button class="today-stat" @click="goFocus">
+          <span class="today-value">{{ todayFocus.focusMinutes }}</span>
+          <span class="today-label">专注分钟</span>
+        </button>
+        <button class="today-stat" @click="goFocus">
+          <span class="today-value">{{ state.studyStats?.streakDays ?? 0 }}</span>
+          <span class="today-label">连续天数</span>
+        </button>
+        <button class="today-stat mistake" @click="goFocus">
+          <span class="today-value">{{ pendingMistakes }}</span>
+          <span class="today-label">待掌握错题</span>
+        </button>
+      </div>
+      <div class="today-right">
+        <div class="today-quote">
+          <span class="quote-mark">“</span>
+          <span class="quote-text" :class="{ fading: quoteFading }">{{ currentQuote.text }}</span>
+          <span v-if="currentQuote.author" class="quote-author">—— {{ currentQuote.author }}</span>
+          <span v-else-if="currentQuote.tag" class="quote-tag">{{ currentQuote.tag }}</span>
+          <button class="quote-shuffle" title="换一句" @click="nextQuote">
+            <Icon name="refresh" :size="12" />
+            换一换
+          </button>
+        </div>
+        <div v-if="termInfo" class="today-term">
+          <span class="term-chip">第 {{ termInfo.week }} 周</span>
+          <span v-if="termInfo.onVacation" class="term-chip vacation">放假中</span>
+          <span v-else-if="termInfo.inExamWeek" class="term-chip exam">考试周</span>
+          <span v-else-if="termInfo.daysToExam > 0" class="term-chip countdown">距期末 {{ termInfo.daysToExam }} 天</span>
+          <span v-else class="term-chip countdown">期末已到</span>
+          <button class="term-more" @click="goFocus(); state.focusTab = 'timetable'">课表 →</button>
+        </div>
+        <div v-if="upcomingEvents.length" class="today-upcoming">
+          <span class="upcoming-label">接下来</span>
+          <span v-for="event in upcomingEvents" :key="event.id" class="upcoming-item">
+            <b>{{ event.date.slice(5) }}</b>
+            {{ event.title }}
+          </span>
+          <button class="upcoming-more" @click="goFocus(); state.focusTab = 'calendar'">查看日历 →</button>
+        </div>
+      </div>
+    </section>
 
     <n-alert v-if="isDemo && state.docs.length" type="info" :bordered="false" class="demo-alert">
       当前使用<strong>本地演示模型</strong>，生成的是规则化演示内容（不需要联网和密钥）。在「设置」里接入 DeepSeek / 通义千问等模型，即可得到真正的 AI 讲解。
@@ -662,6 +784,218 @@ async function onRemove(doc: DocumentRecord) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.today-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  background: linear-gradient(120deg, #f7f9ff 0%, #fdfbff 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.today-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.today-stat {
+  border: none;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(20, 40, 90, 0.06);
+  transition: transform 0.15s ease;
+}
+
+.today-stat:hover {
+  transform: translateY(-1px);
+}
+
+.today-value {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.today-stat.mistake .today-value {
+  color: #d97706;
+}
+
+.today-label {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.today-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.today-term {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+}
+
+.term-chip {
+  border-radius: 6px;
+  padding: 1px 8px;
+  background: #eef2ff;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.term-chip.vacation {
+  background: #e8f7f1;
+  color: #1f9d76;
+}
+
+.term-chip.exam {
+  background: #fdf2f2;
+  color: #c53030;
+}
+
+.term-chip.countdown {
+  background: #fdf6e3;
+  color: #b7791f;
+}
+
+.term-more {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.today-upcoming {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  color: var(--text-regular);
+}
+
+.upcoming-label {
+  color: var(--text-faint);
+}
+
+.upcoming-item b {
+  color: var(--primary);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.upcoming-more {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.today-quote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--text-regular);
+  line-height: 1.6;
+  min-width: 0;
+}
+
+.quote-mark {
+  font-size: 22px;
+  color: var(--primary-soft-strong, #c7d2fe);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.quote-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.quote-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #4c5fd5;
+  font-size: 10px;
+  font-style: normal;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+}
+
+.quote-author {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.quote-text {
+  transition: opacity 0.15s ease;
+}
+
+.quote-text.fading {
+  opacity: 0;
+}
+
+.quote-shuffle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border-soft);
+  background: #fbfcff;
+  color: var(--text-muted);
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.quote-shuffle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@media (max-width: 860px) {
+  .today-card {
+    grid-template-columns: 1fr;
+  }
 }
 
 .vision-row {

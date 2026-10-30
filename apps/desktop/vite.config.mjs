@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here)
 const repo = path.resolve(here, '..', '..')
-const pkgs = ['shared', 'content-ingest', 'ai-core', 'pedagogy', 'resource-service', 'export', 'practice']
+const pkgs = ['shared', 'content-ingest', 'ai-core', 'pedagogy', 'resource-service', 'export', 'practice', 'study']
 
 export default defineConfig({
   root,

@@ -243,6 +243,253 @@ export type VisionEvent =
     }
   | { type: 'done'; ok: boolean; documents: Array<{ id: string; title: string }>; errors: string[] }
 
+/* ---------------------------- 学习管理（v2）---------------------------- */
+
+/** 统一时间轴：番茄钟/练习/复习都写这个，日历与统计都读这个 */
+export type StudyKind = 'focus' | 'quiz' | 'exam' | 'lab' | 'homework' | 'review'
+
+export interface StudyEvent {
+  id: string
+  /** YYYY-MM-DD（本地时区），方便按天聚合 */
+  date: string
+  startAt: string
+  endAt: string
+  minutes: number
+  kind: StudyKind
+  refId?: string
+  title?: string
+}
+
+export type FocusMode = 'focus' | 'shortBreak' | 'longBreak'
+
+export interface FocusPreset {
+  id: string
+  name: string
+  focusMinutes: number
+  shortBreakMinutes: number
+  longBreakMinutes: number
+  pomodorosPerLongBreak: number
+  autoStartNext: boolean
+}
+
+export interface FocusTaskRef {
+  type: 'document' | 'problemSet' | 'lesson'
+  id: string
+  title?: string
+}
+
+export interface FocusSession {
+  id: string
+  mode: FocusMode
+  presetId?: string
+  plannedMinutes: number
+  startedAt: string
+  endedAt: string
+  pausedMinutes: number
+  actualMinutes: number
+  completed: boolean
+  taskRef?: FocusTaskRef
+}
+
+export interface StudyStats {
+  today: { focusCount: number; focusMinutes: number }
+  week: { focusCount: number; focusMinutes: number; activeDays: number }
+  streakDays: number
+  last7Days: Array<{ date: string; minutes: number; count: number }>
+}
+
+export type MistakeSource = 'quiz' | 'manual'
+export type MistakeStatus = 'learning' | 'mastered'
+export type MistakeType = 'single' | 'multiple' | 'blank' | 'short'
+
+export interface MistakeItem {
+  id: string
+  source: MistakeSource
+  courseId?: string
+  knowledgePoint?: string
+  type: MistakeType
+  stem: string
+  options?: string[]
+  answer: string
+  explanation: string
+  /** 自动收集时记下当时选错的答案 */
+  wrongAnswer?: string
+  status: MistakeStatus
+  reviewCount: number
+  lastReviewedAt?: string
+  createdAt: string
+  /** 回溯用：来自哪个题集的哪道题 */
+  problemSetId?: string
+  problemId?: string
+}
+
+/** 备考目标：AI 出阶段计划 + 每周任务 */
+export type PrepTaskKind = 'read' | 'practice' | 'review' | 'mock' | 'listen' | 'write' | 'vocab'
+
+export interface PrepTask {
+  id: string
+  title: string
+  kind: PrepTaskKind
+  /** 第几周（相对目标开始，1 起） */
+  week: number
+  minutes: number
+  done: boolean
+  materialId?: string
+}
+
+export interface PrepPhase {
+  id: string
+  name: string
+  weekFrom: number
+  weekTo: number
+  focus: string
+  tasks: PrepTask[]
+}
+
+export interface PrepGenerateInput {
+  title: string
+  examName: string
+  examDate?: string
+  weeks: number
+  dailyMinutes: number
+  baseline?: string
+  targetScore?: string
+  materialIds: string[]
+}
+
+export interface PrepGoal {
+  id: string
+  title: string
+  examName: string
+  examDate?: string
+  startDate: string
+  weeks: number
+  dailyMinutes: number
+  baseline?: string
+  targetScore?: string
+  materialIds: string[]
+  summary?: string
+  advice: string[]
+  phases: PrepPhase[]
+  createdAt: string
+  updatedAt: string
+}
+
+/** 灵感记录：随手记 + AI 润色 + 导出 */
+export interface IdeaNote {
+  id: string
+  title: string
+  content: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+  /** 来源：quick=快速记录，manual=手动新建 */
+  source?: 'quick' | 'manual'
+  /** 关联材料/题集（可选） */
+  refId?: string
+}
+
+export type IdeaPolishMode = 'polish' | 'outline' | 'title'
+
+export interface DailyQuote {
+  text: string
+  /** 出处（古代典籍/名人时才有） */
+  author?: string
+  /** 分类：行动 / 实话 / 视角 / 自嘲 / 陪伴 / 常识 */
+  tag?: string
+}
+
+/* ------------------------------- 日历与课表 ------------------------------- */
+
+export type CalendarEventType = 'study' | 'exam' | 'deadline' | 'custom'
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  /** YYYY-MM-DD（本地时区） */
+  date: string
+  /** HH:mm；全天事件为空 */
+  startTime?: string
+  endTime?: string
+  allDay: boolean
+  type: CalendarEventType
+  note?: string
+  source: 'app' | 'system' | 'rule'
+  externalId?: string
+  createdAt: string
+}
+
+/** 作业周期规则：一次录入，每周自动生成"布置 / 截止"两条日程 */
+export interface HomeworkRule {
+  id: string
+  courseName: string
+  assignWeekday: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  assignTime: string
+  submitDurationDays: number
+  startDate: string
+  endDate: string
+  active: boolean
+}
+
+/** 放假区间 */
+export interface VacationRange {
+  start: string
+  end: string
+  name?: string
+}
+
+/** 教学周设置：以「第 1 周周一」为锚点，按日历自动推进 */
+export interface TimetableMeta {
+  /** 兼容旧数据：抓取到的当前周（termStart 缺失时兜底） */
+  week?: number
+  /** 用户正在查看的周 */
+  viewWeek?: number
+  termName?: string
+  /** 第 1 周周一的 YYYY-MM-DD */
+  termStart?: string
+  /** 学期总周数（默认 18） */
+  totalWeeks?: number
+  /** 考试周区间（如 17-18） */
+  examWeekStart?: number
+  examWeekEnd?: number
+  /** 放假区间列表 */
+  vacations?: VacationRange[]
+  updatedAt: string
+}
+
+/** 抓取到的接口候选：给"字段映射"兜底用 */
+export interface JsonCandidate {
+  id: string
+  url: string
+  count: number
+  keys: string[]
+  sample: Record<string, string>
+}
+
+/** 字段映射：让用户自己指定哪个字段是课程/星期/时间 */
+export interface TimetableMapping {
+  nameKey: string
+  weekdayKey: string
+  startKey?: string
+  endKey?: string
+  locationKey?: string
+  teacherKey?: string
+}
+
+/** 课表条目（本周视图用；抓取或手动导入） */
+export interface CourseSlot {
+  id: string
+  courseName: string
+  weekday: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  startTime: string
+  endTime: string
+  location?: string
+  teacher?: string
+  weeks?: string
+  color?: string
+  source: 'manual' | 'import' | 'crawl'
+}
+
 export interface Chunk {
   id: string
   index: number

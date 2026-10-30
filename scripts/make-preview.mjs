@@ -150,6 +150,130 @@ const problemSets = [
   }
 ]
 
+
+const calendarEvents = [
+  { id: 'cal_1', title: '高数第三章复习', date: '2026-10-30', startTime: '19:00', endTime: '20:30', allDay: false, type: 'study', source: 'app', createdAt: '2026-10-28T10:00:00+08:00' },
+  { id: 'cal_2', title: '期中考试（高数）', date: '2026-11-05', allDay: true, type: 'exam', source: 'app', createdAt: '2026-10-28T10:00:00+08:00', note: '教学楼 A301' }
+]
+const homeworkRules = [
+  { id: 'rule_1', courseName: '高等数学', assignWeekday: 1, assignTime: '09:00', submitDurationDays: 3, startDate: '2026-09-01', endDate: '2027-01-10', active: true }
+]
+
+const courseSlots = [
+  { id: 'slot_1', courseName: '高等数学（A）', weekday: 1, startTime: '08:00', endTime: '09:35', location: 'A301', teacher: '王老师', weeks: '1-16', location: '北209', color: '#2f4bd8', source: 'crawl' },
+  { id: 'slot_2', courseName: '大学物理', weekday: 1, startTime: '10:00', endTime: '11:35', location: 'B102', teacher: '李老师', weeks: '4-7,16', location: '线上课堂', color: '#1f9d76', source: 'crawl' },
+  { id: 'slot_3', courseName: '线性代数', weekday: 3, startTime: '08:00', endTime: '09:35', location: 'A205', weeks: '1-16', color: '#b7791f', source: 'crawl' },
+  { id: 'slot_4', courseName: '程序设计（C++）', weekday: 4, startTime: '13:30', endTime: '15:05', location: '机房 3', weeks: '9-12', color: '#8b5cf6', source: 'crawl' },
+  { id: 'slot_5', courseName: '大学英语', weekday: 5, startTime: '10:00', endTime: '11:35', location: '外语楼 201', weeks: '1-16', color: '#0284c7', source: 'crawl' }
+]
+
+const prepGoals = [
+  {
+    id: 'prep_1',
+    title: '两个月备考四级',
+    examName: '英语四级',
+    examDate: '2026-12-19',
+    startDate: '2026-10-20',
+    weeks: 8,
+    dailyMinutes: 90,
+    baseline: '上次 425 分',
+    targetScore: '目标 500 分',
+    materialIds: ['doc_1'],
+    summary: '用 8 周、每天 90 分钟准备英语四级：前 3 周摸底与词汇基础，中间 3 周专项突破听力与阅读，最后 2 周模考冲刺。',
+    advice: [
+      '先做一套真题摸底，确定听力、阅读、写作各自的失分比例。',
+      '每天 90 分钟拆成 40 + 50 两段，比一次硬撑更容易坚持。',
+      '错题本按题型归类，同一类错三次以上就专门攻它。'
+    ],
+    phases: [
+      {
+        id: 'phase_0', name: '第一阶段：摸底与词汇（第 1-3 周）', weekFrom: 1, weekTo: 3, focus: '摸清短板，建立每日习惯',
+        tasks: [
+          { id: 't1', title: '做一套四级真题摸底，记录各题型错题数', kind: 'mock', week: 1, minutes: 90, done: true },
+          { id: 't2', title: '每天背 30 个高频词，用间隔重复复习前一天', kind: 'vocab', week: 1, minutes: 30, done: true },
+          { id: 't3', title: '整理错题本，按听力/阅读/写作分类', kind: 'review', week: 2, minutes: 40, done: false }
+        ]
+      },
+      {
+        id: 'phase_1', name: '第二阶段：专项突破（第 4-6 周）', weekFrom: 4, weekTo: 6, focus: '听力与阅读专项训练',
+        tasks: [
+          { id: 't4', title: '每天 1 篇仔细阅读限时训练，做完当天订正', kind: 'practice', week: 4, minutes: 40, done: false },
+          { id: 't5', title: '每天精听一段真题音频，跟读三遍', kind: 'listen', week: 5, minutes: 30, done: false },
+          { id: 't6', title: '积累写作模板并仿写两篇', kind: 'write', week: 6, minutes: 35, done: false }
+        ]
+      },
+      {
+        id: 'phase_2', name: '第三阶段：模考冲刺（第 7-8 周）', weekFrom: 7, weekTo: 8, focus: '按考试节奏模考，查漏补缺',
+        tasks: [
+          { id: 't7', title: '每周一套限时模考，严格掐表', kind: 'mock', week: 7, minutes: 90, done: false },
+          { id: 't8', title: '考前三天只过错题本和高频词', kind: 'review', week: 8, minutes: 30, done: false }
+        ]
+      }
+    ],
+    createdAt: '2026-10-20T09:00:00+08:00',
+    updatedAt: '2026-10-29T21:10:00+08:00'
+  }
+]
+
+const ideaNotes = [
+  { id: 'idea_1', title: '用切线斜率理解导数的直观含义', content: '今天讲到导数的时候老师提了一句：先把割线画出来，让两个点慢慢靠近，割线就变成切线。用这个方式讲比先抛极限定义好懂很多。\n\n可以做成一个动画：一个动点在曲线上滑动，另一个点固定，割线实时变化。', tags: ['高数', '教学想法'], createdAt: '2026-10-29T10:20:00+08:00', updatedAt: '2026-10-30T09:10:00+08:00', source: 'manual' },
+  { id: 'idea_2', title: '错题本按知识点聚类', content: '错题攒多了以后，按知识点分组比按时间排序更有用 —— 能直接看出哪块最薄弱。', tags: ['产品'], createdAt: '2026-10-28T20:05:00+08:00', updatedAt: '2026-10-28T20:05:00+08:00', source: 'quick' }
+]
+
+const timetableMeta = { week: 7, termName: '2026-2027学年度第1学期', termStart: '2026-09-14', totalWeeks: 18, examWeekStart: 17, examWeekEnd: 18, vacations: [{ start: '2026-10-01', end: '2026-10-07', name: '国庆' }], updatedAt: new Date().toISOString() }
+const studyStats = {
+  today: { focusCount: 3, focusMinutes: 75 },
+  week: { focusCount: 11, focusMinutes: 265, activeDays: 5 },
+  streakDays: 4,
+  last7Days: [
+    { date: '2026-10-24', minutes: 50, count: 2 },
+    { date: '2026-10-25', minutes: 25, count: 1 },
+    { date: '2026-10-26', minutes: 0, count: 0 },
+    { date: '2026-10-27', minutes: 75, count: 3 },
+    { date: '2026-10-28', minutes: 50, count: 2 },
+    { date: '2026-10-29', minutes: 75, count: 3 },
+    { date: '2026-10-30', minutes: 75, count: 3 }
+  ]
+}
+const studyQuote = { text: '把不会的弄会，就是提分最直接的路径。' }
+const focusPresets = [
+  { id: 'preset_25_5', name: '25 / 5 标准', focusMinutes: 25, shortBreakMinutes: 5, longBreakMinutes: 15, pomodorosPerLongBreak: 4, autoStartNext: false },
+  { id: 'preset_50_10', name: '50 / 10 深度', focusMinutes: 50, shortBreakMinutes: 10, longBreakMinutes: 25, pomodorosPerLongBreak: 3, autoStartNext: false }
+]
+const focusSessions = [
+  { id: 'focus_1', mode: 'focus', presetId: 'preset_25_5', plannedMinutes: 25, startedAt: '2026-10-30T09:10:00+08:00', endedAt: '2026-10-30T09:35:00+08:00', pausedMinutes: 0, actualMinutes: 25, completed: true, taskRef: { type: 'document', id: 'doc_demo', title: '第三章 导数与微分' } },
+  { id: 'focus_2', mode: 'focus', presetId: 'preset_25_5', plannedMinutes: 25, startedAt: '2026-10-30T10:05:00+08:00', endedAt: '2026-10-30T10:30:00+08:00', pausedMinutes: 2, actualMinutes: 25, completed: true, taskRef: { type: 'problemSet', id: 'pset_demo', title: '第三章 导数与微分 · 习题' } }
+]
+const mistakes = [
+  {
+    id: 'mis_demo_1',
+    source: 'quiz',
+    knowledgePoint: '链式法则',
+    type: 'single',
+    stem: '设 $y=\\sin(2x+1)$，则 $\\dfrac{dy}{dx}=$？',
+    options: ['$2\\cos(2x+1)$', '$\\cos(2x+1)$', '$2\\sin(2x+1)$', '$-2\\cos(2x+1)$'],
+    answer: 'A',
+    explanation: '外层 $\\sin u$、内层 $u=2x+1$，链式法则要乘以内层导数 2，因此是 $2\\cos(2x+1)$。',
+    wrongAnswer: 'B',
+    status: 'learning',
+    reviewCount: 0,
+    createdAt: '2026-10-30T09:20:00+08:00'
+  },
+  {
+    id: 'mis_demo_2',
+    source: 'manual',
+    knowledgePoint: '极值判定',
+    type: 'short',
+    stem: '为什么 $f(x_0)=0$ 不能直接说明 $x_0$ 是极值点？',
+    answer: '驻点也可能是拐点，例如 $f(x)=x^3$ 在 $x=0$ 处。',
+    explanation: '导数等于 0 只是必要条件；还需看两侧单调性是否改变（或二阶导不为 0）。',
+    status: 'mastered',
+    reviewCount: 2,
+    lastReviewedAt: '2026-10-30T10:40:00+08:00',
+    createdAt: '2026-10-29T20:10:00+08:00'
+  }
+]
+
 const documents = [
   {
     id: 'doc_demo',
@@ -195,6 +319,17 @@ const mock = `(() => {
   const documents = ${JSON.stringify(documents)}
   const artifact = ${JSON.stringify(artifact)}
   const problemSets = ${JSON.stringify(problemSets)}
+  const studyStats = ${JSON.stringify(studyStats)}
+  const studyQuote = ${JSON.stringify(studyQuote)}
+  const focusPresets = ${JSON.stringify(focusPresets)}
+  const focusSessions = ${JSON.stringify(focusSessions)}
+  const mistakes = ${JSON.stringify(mistakes)}
+  const calendarEvents = ${JSON.stringify(calendarEvents)}
+  const homeworkRules = ${JSON.stringify(homeworkRules)}
+  const courseSlots = ${JSON.stringify(courseSlots)}
+  const timetableMeta = ${JSON.stringify(timetableMeta)}
+  const ideaNotes = ${JSON.stringify(ideaNotes)}
+  const prepGoals = ${JSON.stringify(prepGoals)}
   const settings = ${JSON.stringify(settings)}
   const info = { version: '1.0.0', platform: 'win32', dataDir: 'C:/Users/Lenovo/AppData/Roaming/AITutorAssistant/data', electron: '33.4.11', chrome: '130.0.6723.137', encryptionAvailable: true }
   const noop = () => {}
@@ -216,6 +351,72 @@ const mock = `(() => {
       captureCurrent: async () => ({ ok: false, error: 'preview mode' }),
       downloadAttachments: async () => ({ ok: false, documents: [], errors: [] }),
       closeCapture: async () => {}
+    },
+    study: {
+      events: async () => [],
+      stats: async () => studyStats,
+      addEvent: async (input) => ({ id: 'evt_demo', date: '2026-10-30', startAt: new Date().toISOString(), endAt: new Date().toISOString(), minutes: input.minutes, kind: input.kind, title: input.title }),
+      removeEvent: async () => {},
+      quote: async () => studyQuote
+    },
+    focus: {
+      presets: async () => focusPresets,
+      savePreset: async (preset) => [...focusPresets, preset],
+      removePreset: async () => focusPresets,
+      sessions: async () => focusSessions,
+      finish: async (session) => ({ session: { ...session, id: 'focus_demo' }, event: null })
+    },
+    prep: {
+      list: async () => prepGoals,
+      save: async (goal) => goal,
+      remove: async () => {},
+      generate: async (input) => ({
+        ok: true,
+        goal: {
+          ...prepGoals[0],
+          id: 'prep_new',
+          title: input.title,
+          examName: input.examName,
+          weeks: input.weeks,
+          dailyMinutes: input.dailyMinutes,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      }),
+      advise: async () => ({ ok: true, advice: ['【预览环境】AI 建议示例：你已导入的《第三章 导数与微分》偏数学，四级备考建议补一套近三年真题。'] })
+    },
+    ideas: {
+      list: async () => ideaNotes,
+      save: async (idea) => ({ ...idea, id: idea.id || 'idea_new', updatedAt: new Date().toISOString() }),
+      remove: async () => {},
+      polish: async (input) => ({ ok: true, text: '【预览环境】AI 润色示例：' + input.text })
+    },
+    timetable: {
+      list: async () => courseSlots,
+      save: async (list) => list,
+      importCsv: async () => ({ ok: false, slots: [], errors: ['preview'] }),
+      meta: async () => timetableMeta,
+      saveMeta: async (meta) => meta,
+      openCrawler: async () => ({ ok: false, error: 'preview' }),
+      capture: async () => ({ ok: false, slots: [], note: 'preview' }),
+      closeCrawler: async () => {}
+    },
+    calendar: {
+      events: async () => calendarEvents,
+      saveEvent: async (event) => ({ ...event, id: event.id || 'cal_demo', createdAt: new Date().toISOString() }),
+      removeEvent: async () => {},
+      rules: async () => homeworkRules,
+      saveRule: async (rule) => [...homeworkRules, rule],
+      removeRule: async () => homeworkRules,
+      importIcs: async () => ({ ok: true, imported: 0, skipped: 0 }),
+      exportIcs: async () => ({ ok: true, text: 'BEGIN:VCALENDAR END:VCALENDAR' })
+    },
+    mistakes: {
+      list: async () => mistakes,
+      add: async (items) => items.map((item, index) => ({ ...item, id: 'mis_demo_' + index, source: 'manual', type: 'short', stem: item.stem || '', answer: item.answer || '', explanation: item.explanation || '', status: 'learning', reviewCount: 0, createdAt: new Date().toISOString() })),
+      update: async (id, patch) => ({ ...mistakes[0], ...patch, id }),
+      remove: async () => {},
+      clearMastered: async () => {}
     },
     practice: {
       list: async () => problemSets,

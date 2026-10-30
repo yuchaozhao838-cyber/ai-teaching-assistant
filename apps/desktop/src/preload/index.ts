@@ -5,7 +5,8 @@ const api: TutorApi = {
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     openDataDir: () => ipcRenderer.invoke('app:openDataDir'),
-    openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url)
+    openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+    setMiniWindow: (enabled: boolean) => ipcRenderer.invoke('app:setMiniWindow', enabled)
   },
   docs: {
     list: () => ipcRenderer.invoke('docs:list'),
@@ -29,6 +30,62 @@ const api: TutorApi = {
     captureCurrent: () => ipcRenderer.invoke('web:captureCurrent'),
     downloadAttachments: (items) => ipcRenderer.invoke('web:downloadAttachments', items),
     closeCapture: () => ipcRenderer.invoke('web:closeCapture')
+  },
+  study: {
+    events: () => ipcRenderer.invoke('study:events'),
+    stats: () => ipcRenderer.invoke('study:stats'),
+    addEvent: (input) => ipcRenderer.invoke('study:addEvent', input),
+    removeEvent: (id: string) => ipcRenderer.invoke('study:removeEvent', id),
+    quote: () => ipcRenderer.invoke('study:quote')
+  },
+  focus: {
+    presets: () => ipcRenderer.invoke('focus:presets'),
+    savePreset: (preset) => ipcRenderer.invoke('focus:savePreset', preset),
+    removePreset: (id: string) => ipcRenderer.invoke('focus:removePreset', id),
+    sessions: () => ipcRenderer.invoke('focus:sessions'),
+    finish: (session) => ipcRenderer.invoke('focus:finish', session)
+  },
+  calendar: {
+    events: () => ipcRenderer.invoke('calendar:events'),
+    saveEvent: (event) => ipcRenderer.invoke('calendar:saveEvent', event),
+    removeEvent: (id: string) => ipcRenderer.invoke('calendar:removeEvent', id),
+    rules: () => ipcRenderer.invoke('calendar:rules'),
+    saveRule: (rule) => ipcRenderer.invoke('calendar:saveRule', rule),
+    removeRule: (id: string) => ipcRenderer.invoke('calendar:removeRule', id),
+    importIcs: (text: string) => ipcRenderer.invoke('calendar:importIcs', text),
+    exportIcs: () => ipcRenderer.invoke('calendar:exportIcs')
+  },
+  prep: {
+    list: () => ipcRenderer.invoke('prep:list'),
+    save: (goal) => ipcRenderer.invoke('prep:save', goal),
+    remove: (id: string) => ipcRenderer.invoke('prep:remove', id),
+    generate: (input) => ipcRenderer.invoke('prep:generate', input),
+    advise: (goalId: string) => ipcRenderer.invoke('prep:advise', goalId)
+  },
+  ideas: {
+    list: () => ipcRenderer.invoke('ideas:list'),
+    save: (idea) => ipcRenderer.invoke('ideas:save', idea),
+    remove: (id: string) => ipcRenderer.invoke('ideas:remove', id),
+    polish: (input) => ipcRenderer.invoke('ideas:polish', input)
+  },
+  timetable: {
+    list: () => ipcRenderer.invoke('timetable:list'),
+    save: (slots) => ipcRenderer.invoke('timetable:save', slots),
+    importCsv: (text: string) => ipcRenderer.invoke('timetable:importCsv', text),
+    openCrawler: (url: string) => ipcRenderer.invoke('timetable:openCrawler', url),
+    capture: () => ipcRenderer.invoke('timetable:capture'),
+    applyMapping: (candidateId: string, mapping) => ipcRenderer.invoke('timetable:applyMapping', candidateId, mapping),
+    meta: () => ipcRenderer.invoke('timetable:meta'),
+    saveMeta: (meta) => ipcRenderer.invoke('timetable:saveMeta', meta),
+    diagnostics: () => ipcRenderer.invoke('timetable:diagnostics'),
+    closeCrawler: () => ipcRenderer.invoke('timetable:closeCrawler')
+  },
+  mistakes: {
+    list: () => ipcRenderer.invoke('mistakes:list'),
+    add: (items) => ipcRenderer.invoke('mistakes:add', items),
+    update: (id: string, patch) => ipcRenderer.invoke('mistakes:update', id, patch),
+    remove: (id: string) => ipcRenderer.invoke('mistakes:remove', id),
+    clearMastered: () => ipcRenderer.invoke('mistakes:clearMastered')
   },
   practice: {
     list: () => ipcRenderer.invoke('practice:list'),

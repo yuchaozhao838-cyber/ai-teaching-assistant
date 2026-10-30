@@ -4,13 +4,30 @@
  */
 import type {
   AppSettings,
+  CalendarEvent,
+  CourseSlot,
+  DailyQuote,
+  JsonCandidate,
+  TimetableMapping,
+  TimetableMeta,
   DocumentRecord,
   ExportFormat,
   ExportResult,
+  FocusPreset,
+  FocusSession,
+  HomeworkRule,
+  IdeaNote,
+  IdeaPolishMode,
   LessonArtifact,
   LessonEvent,
+  MistakeItem,
+  PrepGoal,
+  PrepGenerateInput,
   ProblemSet,
   ProviderConfig,
+  StudyEvent,
+  StudyKind,
+  StudyStats,
   VisionEvent,
   WebAttachment,
   WebIngestResult
@@ -60,6 +77,8 @@ export interface TutorApi {
     }>
     openDataDir(): Promise<void>
     openExternal(url: string): Promise<void>
+    /** 迷你窗口开关（番茄钟置顶小窗） */
+    setMiniWindow(enabled: boolean): Promise<{ mini: boolean }>
   }
   docs: {
     list(): Promise<DocumentRecord[]>
@@ -106,6 +125,85 @@ export interface TutorApi {
     removeProvider(id: string): Promise<AppSettings>
     setActive(id: string): Promise<AppSettings>
     test(p: ProviderUpdate): Promise<TestResult>
+  }
+  /** 学习管理：时间轴统计 + 每日语录（番茄钟/错题本/日历共用） */
+  study: {
+    events(): Promise<StudyEvent[]>
+    stats(): Promise<StudyStats>
+    addEvent(input: {
+      kind: StudyKind
+      minutes: number
+      startAt?: string
+      endAt?: string
+      refId?: string
+      title?: string
+    }): Promise<StudyEvent>
+    removeEvent(id: string): Promise<void>
+    quote(): Promise<DailyQuote>
+  }
+  /** 专注番茄钟 */
+  focus: {
+    presets(): Promise<FocusPreset[]>
+    savePreset(preset: FocusPreset): Promise<FocusPreset[]>
+    removePreset(id: string): Promise<FocusPreset[]>
+    sessions(): Promise<FocusSession[]>
+    finish(session: Omit<FocusSession, 'id'>): Promise<{ session: FocusSession; event: StudyEvent | null }>
+  }
+  /** 日历与作业周期规则 */
+  calendar: {
+    events(): Promise<CalendarEvent[]>
+    saveEvent(event: CalendarEvent): Promise<CalendarEvent>
+    removeEvent(id: string): Promise<void>
+    rules(): Promise<HomeworkRule[]>
+    saveRule(rule: HomeworkRule): Promise<HomeworkRule[]>
+    removeRule(id: string): Promise<HomeworkRule[]>
+    importIcs(text: string): Promise<{ ok: boolean; imported: number; skipped: number; error?: string }>
+    exportIcs(): Promise<{ ok: boolean; text: string }>
+  }
+  /** 备考规划：目标 → AI 阶段计划 → 每周任务 */
+  prep: {
+    list(): Promise<PrepGoal[]>
+    save(goal: PrepGoal): Promise<PrepGoal>
+    remove(id: string): Promise<void>
+    generate(input: PrepGenerateInput): Promise<{ ok: boolean; goal?: PrepGoal; error?: string }>
+    advise(goalId: string): Promise<{ ok: boolean; advice?: string[]; error?: string }>
+  }
+  /** 灵感记录：随手记 + AI 润色 */
+  ideas: {
+    list(): Promise<IdeaNote[]>
+    save(idea: IdeaNote): Promise<IdeaNote>
+    remove(id: string): Promise<void>
+    polish(input: { text: string; mode: IdeaPolishMode; title?: string }): Promise<{ ok: boolean; text?: string; error?: string }>
+  }
+  /** 课表（登录教务系统抓取 / 手动 / CSV） */
+  timetable: {
+    list(): Promise<CourseSlot[]>
+    save(slots: CourseSlot[]): Promise<CourseSlot[]>
+    importCsv(text: string): Promise<{ ok: boolean; slots: CourseSlot[]; errors: string[] }>
+    openCrawler(url: string): Promise<{ ok: boolean; error?: string }>
+    capture(): Promise<{
+      ok: boolean
+      slots: CourseSlot[]
+      note: string
+      candidates?: JsonCandidate[]
+      week?: number
+      termName?: string
+      termStart?: string
+      error?: string
+    }>
+    meta(): Promise<TimetableMeta | null>
+    saveMeta(meta: TimetableMeta): Promise<TimetableMeta>
+    applyMapping(candidateId: string, mapping: TimetableMapping): Promise<{ ok: boolean; slots: CourseSlot[]; error?: string }>
+    diagnostics(): Promise<{ ok: boolean; text: string }>
+    closeCrawler(): Promise<void>
+  }
+  /** 错题本 */
+  mistakes: {
+    list(): Promise<MistakeItem[]>
+    add(items: Array<Partial<MistakeItem>>): Promise<MistakeItem[]>
+    update(id: string, patch: Partial<MistakeItem>): Promise<MistakeItem | null>
+    remove(id: string): Promise<void>
+    clearMastered(): Promise<void>
   }
   exporter: {
     run(artifactId: string, format: ExportFormat): Promise<ExportResult>

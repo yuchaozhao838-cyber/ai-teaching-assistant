@@ -21,6 +21,7 @@
       "@tutor/resource-service": ["packages/resource-service/src/index.ts"],
       "@tutor/export": ["packages/export/src/index.ts"],
       "@tutor/practice": ["packages/practice/src/index.ts"],
+      "@tutor/study": ["packages/study/src/index.ts"],
       "@renderer/*": ["apps/desktop/src/renderer/*"]
     }
   },
