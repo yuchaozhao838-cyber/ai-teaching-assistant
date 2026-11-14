@@ -1,7 +1,7 @@
 {
   "name": "ai-teaching-assistant",
   "productName": "AI课堂助手",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "private": true,
   "description": "AI 教学辅助桌面应用（讲解闭环 MVP）：导入课件 → 生成知识点详解与重点划分 → 展示 / 导出",
   "author": {
