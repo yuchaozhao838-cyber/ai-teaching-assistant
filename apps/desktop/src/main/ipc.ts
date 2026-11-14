@@ -21,6 +21,7 @@ import type {
   LessonArtifact,
   LessonEvent,
   MistakeItem,
+  ProblemItem,
   ProblemSet,
   ProviderConfig,
   ProviderUpdate,
@@ -59,7 +60,7 @@ import { printHtmlToPdf } from './pdf'
 import { renderPdfPages } from './pdf-render'
 import { captureTimetable, captureWithMapping, closeCampusWindow, openCampusWindow, timetableDiagnostics } from './campus'
 import { encryptionAvailable } from './secrets'
-import { buildMaterialContext, generateProblems } from '@tutor/practice'
+import { buildMaterialContext, generateProblems, parseQuestionsFromText } from '@tutor/practice'
 import {
   DEFAULT_PRESETS,
   computeStats,
@@ -724,6 +725,32 @@ export function registerIpcHandlers(ctx: IpcContext) {
   /* -------------------------------- 习题练习 -------------------------------- */
   ipcMain.handle('practice:list', () => resources.listProblemSets())
   ipcMain.handle('practice:get', (_event, id: string) => resources.getProblemSet(id))
+  ipcMain.handle('practice:extract', async (_event, input: { text: string; title?: string }) => {
+    const parsed = parseQuestionsFromText(input?.text ?? '')
+    if (!parsed.items.length) {
+      return { ok: false, error: '没有识别出题目，请检查题号格式（如 1.、2、 或 第1题）', warnings: parsed.warnings }
+    }
+    return {
+      ok: true,
+      items: parsed.items.map((item) => ({ ...item, id: newId('prb'), origin: 'extracted' as const })),
+      warnings: parsed.warnings,
+      title: (input.title ?? '').trim() || undefined
+    }
+  })
+  ipcMain.handle('practice:saveExtracted', async (_event, input: { title: string; items: ProblemItem[] }) => {
+    const items = (input.items ?? []).filter((item) => item?.stem?.trim())
+    if (!items.length) return { ok: false, error: '没有可保存的题目' }
+    const set: ProblemSet = {
+      id: newId('pset'),
+      title: (input.title || '整理已有题目').trim().slice(0, 80),
+      mode: 'extract',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      items,
+      warnings: []
+    }
+    return { ok: true, set: await resources.saveProblemSet(set) }
+  })
 
   ipcMain.handle('practice:remove', async (_event, id: string) => {
     await resources.deleteProblemSet(id)

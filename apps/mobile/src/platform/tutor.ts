@@ -14,7 +14,7 @@ import {
   generateMockLesson,
   pagesToMarkdown
 } from '@tutor/pedagogy'
-import { buildMaterialContext, generateProblems } from '@tutor/practice'
+import { buildMaterialContext, generateProblems, parseQuestionsFromText } from '@tutor/practice'
 import {
   DEFAULT_PRESETS,
   csvToCourseSlots,
@@ -45,6 +45,7 @@ import type {
   LessonArtifact,
   LessonEvent,
   MistakeItem,
+  ProblemItem,
   ProblemSet,
   ProviderConfig,
   ProviderUpdate,
@@ -682,6 +683,31 @@ export function createBrowserTutor(): TutorApi {
       },
       get: async (id: string) => (await store.get<ProblemSet>('practice', id)) ?? null,
       generate: generateProblemSet,
+      extract: async (input: { text: string; title?: string }) => {
+        const parsed = parseQuestionsFromText(input.text)
+        if (!parsed.items.length) return { ok: false, error: '没有识别出题目，请检查编号格式', warnings: parsed.warnings }
+        return {
+          ok: true,
+          items: parsed.items.map((item) => ({ ...item, id: uid('prb'), origin: 'extracted' as const })),
+          warnings: parsed.warnings,
+          title: input.title?.trim() || undefined
+        }
+      },
+      saveExtracted: async (input: { title: string; items: ProblemItem[] }) => {
+        const items = (input.items ?? []).filter((item) => item?.stem?.trim())
+        if (!items.length) return { ok: false, error: '没有可保存的题目' }
+        const set: ProblemSet = {
+          id: uid('pset'),
+          title: (input.title || '整理已有题目').trim().slice(0, 80),
+          mode: 'extract',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          items,
+          warnings: []
+        }
+        await store.put('practice', set)
+        return { ok: true, set }
+      },
       createManual: async (title: string) => {
         const set: ProblemSet = {
           id: uid('pset'),

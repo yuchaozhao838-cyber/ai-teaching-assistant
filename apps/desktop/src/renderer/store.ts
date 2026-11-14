@@ -23,6 +23,7 @@ import type {
   MistakeItem,
   OutlineNode,
   StudyEvent,
+  ProblemItem,
   ProblemSet,
   ProviderUpdate,
   StudyStats,
@@ -214,6 +215,16 @@ export async function generateProblemSet(payload: {
   if (result.ok && result.set) {
     state.problemSets = [result.set, ...state.problemSets.filter((s) => s.id !== result.set!.id)]
   }
+  return result
+}
+
+export async function extractQuestions(input: { text: string; title?: string }) {
+  return window.tutor.practice.extract(input)
+}
+
+export async function saveExtractedSet(title: string, items: ProblemItem[]) {
+  const result = await window.tutor.practice.saveExtracted({ title, items: toPlain(items) })
+  if (result.ok && result.set) state.problemSets = [result.set, ...state.problemSets]
   return result
 }
 

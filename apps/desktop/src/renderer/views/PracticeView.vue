@@ -10,6 +10,8 @@ import {
   addMistakes,
   createManualProblemSet,
   deleteProblemSet,
+  extractQuestions,
+  saveExtractedSet,
   generateProblemSet,
   goPractice,
   saveProblemSet,
@@ -23,6 +25,61 @@ const message = useMessage()
 const tab = ref<'problems' | 'mistakes'>('problems')
 const mistakeCount = computed(() => state.mistakes.filter((item) => item.status === 'learning').length)
 const loadingMistakes = 0
+
+const extractOpen = ref(false)
+const extractText = ref('')
+const extractTitle = ref('')
+const extractLoading = ref(false)
+const extractSaving = ref(false)
+const extractedItems = ref<ProblemItem[]>([])
+const extractWarnings = ref<string[]>([])
+
+async function runExtract() {
+  if (!extractText.value.trim()) {
+    message.warning('请先粘贴带题号的题目文本')
+    return
+  }
+  extractLoading.value = true
+  try {
+    const result = await extractQuestions({ text: extractText.value, title: extractTitle.value })
+    if (!result.ok || !result.items) {
+      extractWarnings.value = result.warnings ?? []
+      message.error(result.error ?? '没有识别出题目，请检查题号格式')
+      return
+    }
+    extractedItems.value = result.items
+    extractWarnings.value = result.warnings ?? []
+    message.success(`识别出 ${result.items.length} 道题，可检查并修改后保存`)
+  } finally {
+    extractLoading.value = false
+  }
+}
+
+function removeExtracted(id: string) {
+  extractedItems.value = extractedItems.value.filter((item) => item.id !== id)
+}
+
+function setExtractedOptions(item: ProblemItem, value: string) {
+  item.options = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+}
+
+async function saveExtracted() {
+  if (!extractedItems.value.length) return
+  extractSaving.value = true
+  try {
+    const result = await saveExtractedSet(extractTitle.value || '整理已有题目', extractedItems.value)
+    if (!result.ok || !result.set) {
+      message.error(result.error ?? '保存失败')
+      return
+    }
+    selectSet(result.set.id)
+    extractOpen.value = false
+    extractedItems.value = []
+    message.success(`已保存「${result.set.title}」`)
+  } finally {
+    extractSaving.value = false
+  }
+}
 
 /** 把当前题目记进错题本（练习页与错题本联动的最小入口） */
 async function onAddMistake(item: ProblemItem) {
@@ -239,6 +296,10 @@ void goPractice()
           <template #icon><Icon name="plus" :size="14" /></template>
           空白题集
         </n-button>
+        <n-button size="small" quaternary @click="extractOpen = true">
+          <template #icon><Icon name="edit" :size="14" /></template>
+          整理已有题目
+        </n-button>
         <n-button size="small" type="primary" @click="genOpen = true">
           <template #icon><Icon name="sparkles" :size="14" /></template>
           生成习题
@@ -265,8 +326,7 @@ void goPractice()
       </div>
       <h3>还没有习题</h3>
       <p>
-        点右上角「生成习题」：选一份材料，让 AI 出题并写解析；也可以选「整理已有题目」，把老师课件或网上的题整理成题目 + 答案 + 解析，
-        或者直接建一份空白题集，自己出题。
+        可从材料或主题生成新题，也可粘贴编号题目文本进行整理，检查题干、选项、答案和解析后保存；还可以创建空白题集手动录入。
       </p>
       <n-button type="primary" @click="genOpen = true">生成第一份习题</n-button>
     </div>
@@ -382,6 +442,56 @@ void goPractice()
       </div>
     </div>
 
+    <n-modal v-model:show="extractOpen" preset="card" title="整理已有题目" :bordered="false" style="width: 820px; max-width: 92vw">
+      <div class="extract-form">
+        <n-form-item label="题集名称">
+          <n-input v-model:value="extractTitle" placeholder="可选，例如：函数极限练习" />
+        </n-form-item>
+        <n-form-item label="题目文本">
+          <n-input
+            v-model:value="extractText"
+            type="textarea"
+            placeholder="粘贴带题号的文本，例如：1. 题干…  A. 选项…  B. 选项…  答案：A  解析：…"
+            :autosize="{ minRows: 8, maxRows: 16 }"
+          />
+        </n-form-item>
+        <div class="extract-actions">
+          <span class="modal-tip">支持编号题目文本粘贴；PDF 文件暂不支持此入口。</span>
+          <n-button type="primary" :loading="extractLoading" @click="runExtract">识别并预览</n-button>
+        </div>
+      </div>
+
+      <n-alert v-if="extractWarnings.length" type="warning" :show-icon="false" style="margin-top: 12px">
+        {{ extractWarnings.join('；') }}
+      </n-alert>
+
+      <div v-if="extractedItems.length" class="extracted-list">
+        <article v-for="(item, index) in extractedItems" :key="item.id" class="extracted-item">
+          <header class="extracted-head">
+            <strong>第 {{ index + 1 }} 题</strong>
+            <n-button text type="error" @click="removeExtracted(item.id)">移除</n-button>
+          </header>
+          <n-form label-placement="top" :show-feedback="false">
+            <n-form-item label="题干"><n-input v-model:value="item.stem" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" /></n-form-item>
+            <n-form-item v-if="item.options.length" label="选项（一行一个）">
+              <n-input :value="item.options.join('\n')" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" @update:value="setExtractedOptions(item, $event)" />
+            </n-form-item>
+            <div class="gen-row">
+              <n-form-item label="答案" style="flex: 1"><n-input v-model:value="item.answer" type="textarea" :autosize="{ minRows: 1, maxRows: 3 }" /></n-form-item>
+              <n-form-item label="解析" style="flex: 2"><n-input v-model:value="item.explanation" type="textarea" :autosize="{ minRows: 1, maxRows: 3 }" /></n-form-item>
+            </div>
+          </n-form>
+        </article>
+      </div>
+
+      <template #footer>
+        <div class="modal-footer">
+          <n-button @click="extractOpen = false">关闭</n-button>
+          <n-button type="primary" :disabled="!extractedItems.length" :loading="extractSaving" @click="saveExtracted">保存题集</n-button>
+        </div>
+      </template>
+    </n-modal>
+
     <!-- 生成弹窗 -->
     <n-modal v-model:show="genOpen" preset="card" title="生成习题" :bordered="false" style="width: 680px">
       <n-form label-placement="top" :show-feedback="false">
@@ -491,6 +601,30 @@ void goPractice()
 </template>
 
 <style scoped>
+.extract-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.extracted-list {
+  display: grid;
+  gap: 12px;
+  max-height: 42vh;
+  overflow: auto;
+  margin-top: 14px;
+}
+.extracted-item {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+}
+.extracted-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
 .practice-page {
   overflow: hidden;
 }

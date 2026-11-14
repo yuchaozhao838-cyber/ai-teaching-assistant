@@ -23,6 +23,7 @@ import type {
   MistakeItem,
   PrepGoal,
   PrepGenerateInput,
+  ProblemItem,
   ProblemSet,
   ProviderConfig,
   StudyEvent,
@@ -104,6 +105,8 @@ export interface TutorApi {
     list(): Promise<ProblemSet[]>
     get(id: string): Promise<ProblemSet | null>
     generate(input: GenerateProblemsPayload): Promise<{ ok: boolean; set?: ProblemSet; warnings?: string[]; error?: string }>
+    extract(input: { text: string; title?: string }): Promise<{ ok: boolean; items?: ProblemItem[]; warnings?: string[]; title?: string; error?: string }>
+    saveExtracted(input: { title: string; items: ProblemItem[] }): Promise<{ ok: boolean; set?: ProblemSet; error?: string }>
     createManual(title: string): Promise<{ ok: boolean; set?: ProblemSet; error?: string }>
     update(set: ProblemSet): Promise<{ ok: boolean; set?: ProblemSet; error?: string }>
     remove(id: string): Promise<void>

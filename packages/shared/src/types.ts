@@ -190,6 +190,8 @@ export interface ProblemItem {
   origin: ProblemOrigin
   /** 材料里的原句依据（用于核对题目没有跑题） */
   sourceQuote?: string
+  /** 整理已有题目时的原始题号 */
+  sourceNo?: number
 }
 
 export interface ProblemSet {

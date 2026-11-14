@@ -4,6 +4,7 @@ import type { ProblemDifficulty, ProblemItem, ProblemType } from '@tutor/shared'
 import { SYSTEM_PROMPT, extractJson } from '@tutor/pedagogy'
 import { truncate } from '@tutor/content-ingest'
 
+export { parseQuestionsFromText } from './extract'
 export { buildMaterialContext } from './material'
 export type { MaterialContext } from './material'
 

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ExportFormat, LessonEvent, TutorApi } from '@tutor/shared'
+import type { ExportFormat, LessonEvent, ProblemItem, TutorApi } from '@tutor/shared'
 
 const api: TutorApi = {
   app: {
@@ -91,6 +91,8 @@ const api: TutorApi = {
     list: () => ipcRenderer.invoke('practice:list'),
     get: (id: string) => ipcRenderer.invoke('practice:get', id),
     generate: (input) => ipcRenderer.invoke('practice:generate', input),
+    extract: (input: { text: string; title?: string }) => ipcRenderer.invoke('practice:extract', input),
+    saveExtracted: (input: { title: string; items: ProblemItem[] }) => ipcRenderer.invoke('practice:saveExtracted', input),
     createManual: (title: string) => ipcRenderer.invoke('practice:createManual', title),
     update: (set) => ipcRenderer.invoke('practice:update', set),
     remove: (id: string) => ipcRenderer.invoke('practice:remove', id)
